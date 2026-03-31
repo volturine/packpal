@@ -7,6 +7,52 @@ import { eq, inArray, and } from 'drizzle-orm';
 import { getAccessibleTripById } from '$lib/server/trip-access';
 import { generateId, sanitizeText } from '$lib/server/utils';
 
+const VALID_PRIORITIES = new Set(['must', 'normal', 'optional']);
+
+function normalizePackingItem(input: {
+	name: string;
+	category: string;
+	quantity: number;
+	priority?: 'must' | 'normal' | 'optional';
+	notes?: string | null;
+	isCustom: boolean;
+}) {
+	const name = sanitizeText(input.name);
+	if (!name) return { error: 'Item name is required' } as const;
+
+	const category = sanitizeText(input.category);
+	if (!category) return { error: 'Category is required' } as const;
+
+	if (!Number.isInteger(input.quantity) || input.quantity < 1) {
+		return { error: 'Quantity must be at least 1' } as const;
+	}
+
+	const priority = input.priority ?? 'normal';
+	if (!VALID_PRIORITIES.has(priority)) {
+		return { error: 'Invalid priority' } as const;
+	}
+
+	return {
+		value: {
+			name,
+			category,
+			quantity: input.quantity,
+			isCustom: input.isCustom,
+			notes: input.notes ? sanitizeText(input.notes) : null,
+			priority
+		}
+	} as const;
+}
+
+type NormalizedPackingItem = {
+	name: string;
+	category: string;
+	quantity: number;
+	isCustom: boolean;
+	notes: string | null;
+	priority: 'must' | 'normal' | 'optional';
+};
+
 // GET /api/packing-items?tripId=xxx
 export const GET: RequestHandler = async (event) => {
 	const session = getSessionFromCookies(event);
@@ -53,21 +99,41 @@ export const POST: RequestHandler = async (event) => {
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
 	if (items) {
+		const normalizedResults = items.map((currentItem) =>
+			normalizePackingItem({
+				...currentItem,
+				notes: currentItem.notes ?? null,
+				isCustom: currentItem.isCustom
+			})
+		);
+		const invalidItem = normalizedResults.find((result) => 'error' in result);
+		if (invalidItem && 'error' in invalidItem) {
+			return json({ error: invalidItem.error }, { status: 400 });
+		}
+
+		const normalizedItems: NormalizedPackingItem[] = [];
+		for (const result of normalizedResults) {
+			if ('value' in result) {
+				const normalizedItem = result.value;
+				if (normalizedItem) normalizedItems.push(normalizedItem);
+			}
+		}
+
 		const ids: string[] = [];
-		for (const currentItem of items) {
+		for (const currentItem of normalizedItems) {
 			const id = generateId();
 			db.insert(packingItems)
 				.values({
 					id,
 					tripId,
 					userId: session.userId,
-					name: sanitizeText(currentItem.name),
+					name: currentItem.name,
 					category: currentItem.category,
 					quantity: currentItem.quantity,
 					isCustom: currentItem.isCustom,
 					packed: false,
-					notes: currentItem.notes ? sanitizeText(currentItem.notes) : null,
-					priority: currentItem.priority ?? 'normal'
+					notes: currentItem.notes,
+					priority: currentItem.priority
 				})
 				.run();
 			ids.push(id);
@@ -76,19 +142,28 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	if (item) {
+		const normalizedItem = normalizePackingItem({
+			...item,
+			notes: item.notes ?? null,
+			isCustom: true
+		});
+		if ('error' in normalizedItem) {
+			return json({ error: normalizedItem.error }, { status: 400 });
+		}
+
 		const id = generateId();
 		db.insert(packingItems)
 			.values({
 				id,
 				tripId,
 				userId: session.userId,
-				name: sanitizeText(item.name),
-				category: item.category,
-				quantity: item.quantity,
+				name: normalizedItem.value.name,
+				category: normalizedItem.value.category,
+				quantity: normalizedItem.value.quantity,
 				isCustom: true,
 				packed: false,
-				notes: item.notes ? sanitizeText(item.notes) : null,
-				priority: item.priority ?? 'normal'
+				notes: normalizedItem.value.notes,
+				priority: normalizedItem.value.priority
 			})
 			.run();
 		return json({ id });
@@ -133,11 +208,29 @@ export const PATCH: RequestHandler = async (event) => {
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
 		const updateFields: Record<string, unknown> = {};
-		if (name !== undefined) updateFields.name = sanitizeText(name);
-		if (category !== undefined) updateFields.category = category;
-		if (quantity !== undefined) updateFields.quantity = quantity;
+		if (name !== undefined) {
+			const sanitizedName = sanitizeText(name);
+			if (!sanitizedName) return json({ error: 'Item name is required' }, { status: 400 });
+			updateFields.name = sanitizedName;
+		}
+		if (category !== undefined) {
+			const sanitizedCategory = sanitizeText(category);
+			if (!sanitizedCategory) return json({ error: 'Category is required' }, { status: 400 });
+			updateFields.category = sanitizedCategory;
+		}
+		if (quantity !== undefined) {
+			if (!Number.isInteger(quantity) || quantity < 1) {
+				return json({ error: 'Quantity must be at least 1' }, { status: 400 });
+			}
+			updateFields.quantity = quantity;
+		}
 		if (notes !== undefined) updateFields.notes = notes ? sanitizeText(notes) : null;
-		if (priority !== undefined) updateFields.priority = priority;
+		if (priority !== undefined) {
+			if (!VALID_PRIORITIES.has(priority)) {
+				return json({ error: 'Invalid priority' }, { status: 400 });
+			}
+			updateFields.priority = priority;
+		}
 
 		if (Object.keys(updateFields).length > 0) {
 			db.update(packingItems).set(updateFields).where(eq(packingItems.id, id)).run();

@@ -20,9 +20,16 @@
 	let quantity = $state(1);
 	let priority = $state<PackingItemPriority>('normal');
 	let notes = $state('');
+	let quantityError = $state('');
 
 	function handleAdd() {
 		if (!name.trim()) return;
+		if (!Number.isInteger(quantity) || quantity < 1) {
+			quantityError = 'Quantity must be at least 1';
+			return;
+		}
+
+		quantityError = '';
 		onadd({
 			name: name.trim(),
 			category,
@@ -59,6 +66,7 @@
 			type="number"
 			min="1"
 			bind:value={quantity}
+			oninput={() => (quantityError = '')}
 			class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500"
 		/>
 		<select
@@ -70,6 +78,9 @@
 			<option value="optional">Optional</option>
 		</select>
 	</div>
+	{#if quantityError}
+		<p class="mt-2 text-sm text-red-600">{quantityError}</p>
+	{/if}
 	<div class="mt-3 flex gap-3">
 		<input
 			type="text"

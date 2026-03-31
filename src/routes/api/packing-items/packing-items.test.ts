@@ -230,6 +230,68 @@ describe('POST /api/packing-items', () => {
 		const response = await POST(event);
 		expect(response.status).toBe(404);
 	});
+
+	it('rejects items with empty names', async () => {
+		seedTrip();
+
+		const event = createAuthEvent({
+			method: 'POST',
+			sessionUserId: 'user-1',
+			body: {
+				tripId: 'trip-1',
+				item: { name: '   ', category: 'Clothing', quantity: 1 }
+			}
+		});
+		const response = await POST(event);
+		const data = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(data.error).toContain('Item name');
+	});
+
+	it('rejects items with invalid quantities', async () => {
+		seedTrip();
+
+		const event = createAuthEvent({
+			method: 'POST',
+			sessionUserId: 'user-1',
+			body: {
+				tripId: 'trip-1',
+				item: { name: 'Socks', category: 'Clothing', quantity: 0 }
+			}
+		});
+		const response = await POST(event);
+		const data = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(data.error).toContain('Quantity');
+	});
+
+	it('rejects bulk items before inserting partial data', async () => {
+		seedTrip();
+
+		const event = createAuthEvent({
+			method: 'POST',
+			sessionUserId: 'user-1',
+			body: {
+				tripId: 'trip-1',
+				items: [
+					{ name: 'Valid Item', category: 'Clothing', quantity: 1, isCustom: false },
+					{ name: '', category: 'Footwear', quantity: 1, isCustom: true }
+				]
+			}
+		});
+		const response = await POST(event);
+		const data = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(data.error).toContain('Item name');
+
+		const rows = helpers
+			.sqliteRef!.prepare('SELECT id FROM packing_items WHERE trip_id = ?')
+			.all('trip-1');
+		expect(rows).toHaveLength(0);
+	});
 });
 
 describe('PATCH /api/packing-items', () => {
@@ -285,6 +347,32 @@ describe('PATCH /api/packing-items', () => {
 			.get('item-1') as { name: string; priority: string };
 		expect(row.name).toBe('Updated Passport');
 		expect(row.priority).toBe('must');
+	});
+
+	it('rejects invalid item updates', async () => {
+		seedTrip();
+		insertTestPackingItem(helpers.sqliteRef!, {
+			id: 'item-1',
+			tripId: 'trip-1',
+			userId: 'user-1',
+			name: 'Passport',
+			category: 'Documents & Money'
+		});
+
+		const event = createAuthEvent({
+			method: 'PATCH',
+			sessionUserId: 'user-1',
+			body: {
+				action: 'update',
+				id: 'item-1',
+				quantity: 0
+			}
+		});
+		const response = await PATCH(event);
+		const data = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(data.error).toContain('Quantity');
 	});
 
 	it('toggles all items in a category', async () => {

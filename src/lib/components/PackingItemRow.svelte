@@ -27,6 +27,7 @@
 	let editQuantity = $state(1);
 	let editNotes = $state('');
 	let editPriority = $state<PackingItemPriority>('normal');
+	let editError = $state('');
 
 	function priorityBadgeClasses(priority: PackingItemPriority): string {
 		if (priority === 'must') return 'bg-red-50 text-red-700';
@@ -45,6 +46,12 @@
 
 	function saveEdit() {
 		if (!editName.trim()) return;
+		if (!Number.isInteger(editQuantity) || editQuantity < 1) {
+			editError = 'Quantity must be at least 1';
+			return;
+		}
+
+		editError = '';
 		onsaveedit({
 			id: item.id,
 			name: editName.trim(),
@@ -62,55 +69,62 @@
 			editQuantity = item.quantity;
 			editNotes = item.notes ?? '';
 			editPriority = item.priority;
+			editError = '';
 		}
 	});
 </script>
 
 <li class="group flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0">
 	{#if editing}
-		<div class="grid flex-1 gap-2 md:grid-cols-[2fr_1fr_80px_1fr_1fr_auto_auto]">
-			<input
-				type="text"
-				bind:value={editName}
-				class="rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-brand-500"
-			/>
-			<select
-				bind:value={editCategory}
-				class="rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-brand-500"
-			>
-				{#each CATEGORIES as currentCategory (currentCategory)}
-					<option value={currentCategory}>{currentCategory}</option>
-				{/each}
-			</select>
-			<input
-				type="number"
-				min="1"
-				bind:value={editQuantity}
-				class="rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-brand-500"
-			/>
-			<select
-				bind:value={editPriority}
-				class="rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-brand-500"
-			>
-				<option value="must">Must</option>
-				<option value="normal">Normal</option>
-				<option value="optional">Optional</option>
-			</select>
-			<input
-				type="text"
-				bind:value={editNotes}
-				placeholder="Optional note"
-				class="rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-brand-500"
-			/>
-			<button
-				onclick={saveEdit}
-				class="rounded bg-brand-600 px-2 py-1 text-xs text-white hover:bg-brand-700">Save</button
-			>
-			<button
-				onclick={oncanceledit}
-				class="rounded bg-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-300"
-				>Cancel</button
-			>
+		<div class="flex-1">
+			<div class="grid gap-2 md:grid-cols-[2fr_1fr_80px_1fr_1fr_auto_auto]">
+				<input
+					type="text"
+					bind:value={editName}
+					class="rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-brand-500"
+				/>
+				<select
+					bind:value={editCategory}
+					class="rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-brand-500"
+				>
+					{#each CATEGORIES as currentCategory (currentCategory)}
+						<option value={currentCategory}>{currentCategory}</option>
+					{/each}
+				</select>
+				<input
+					type="number"
+					min="1"
+					bind:value={editQuantity}
+					oninput={() => (editError = '')}
+					class="rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-brand-500"
+				/>
+				<select
+					bind:value={editPriority}
+					class="rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-brand-500"
+				>
+					<option value="must">Must</option>
+					<option value="normal">Normal</option>
+					<option value="optional">Optional</option>
+				</select>
+				<input
+					type="text"
+					bind:value={editNotes}
+					placeholder="Optional note"
+					class="rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-brand-500"
+				/>
+				<button
+					onclick={saveEdit}
+					class="rounded bg-brand-600 px-2 py-1 text-xs text-white hover:bg-brand-700">Save</button
+				>
+				<button
+					onclick={oncanceledit}
+					class="rounded bg-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-300"
+					>Cancel</button
+				>
+			</div>
+			{#if editError}
+				<p class="mt-2 text-sm text-red-600">{editError}</p>
+			{/if}
 		</div>
 	{:else}
 		<button

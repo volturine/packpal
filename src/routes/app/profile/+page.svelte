@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { getContext } from 'svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import type { AuthUser } from '$lib/types';
@@ -94,31 +95,7 @@
 </script>
 
 <div class="min-h-screen bg-surface font-sans text-slate-900">
-	<header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-sm">
-		<div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-			<a href="/app" class="flex items-center gap-2 text-lg font-bold tracking-tight">
-				<span
-					class="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-xs text-white"
-					>P</span
-				>
-				PackPal
-			</a>
-			<div class="flex items-center gap-3">
-				<a
-					href="/app"
-					class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-				>
-					Back to Dashboard
-				</a>
-				<button
-					onclick={auth.logout}
-					class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-				>
-					Sign out
-				</button>
-			</div>
-		</div>
-	</header>
+	<AppHeader backHref="/app" backLabel="Back to dashboard" />
 
 	<main class="mx-auto max-w-2xl px-6 py-8">
 		<h1 class="text-2xl font-bold text-slate-900">Profile Settings</h1>

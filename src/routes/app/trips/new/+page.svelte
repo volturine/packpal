@@ -1,11 +1,8 @@
 <script lang="ts">
+	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { goto } from '$app/navigation';
-	import {
-		ACTIVITIES,
-		ACTIVITY_GROUPS,
-		getPackingListForTrip,
-		type Climate
-	} from '$lib/data/packing-templates';
+	import { ACTIVITIES, ACTIVITY_GROUPS, type Climate } from '$lib/data/packing-templates';
+	import { getInitialTripItems } from '$lib/trip-items';
 	import type { PackingPreset } from '$lib/types';
 
 	let name = $state('');
@@ -74,10 +71,7 @@
 	const canProceedStep2 = $derived(selectedActivities.length > 0);
 	const selectedPreset = $derived(presets.find((preset) => preset.id === selectedPresetId) ?? null);
 	const previewItems = $derived.by(() => {
-		const generated =
-			selectedActivities.length > 0 ? getPackingListForTrip(selectedActivities, climate) : [];
-		const presetItems = selectedPreset?.items ?? [];
-		return [...generated, ...presetItems];
+		return getInitialTripItems(selectedActivities, climate, selectedPreset?.items ?? []);
 	});
 	const previewByCategory = $derived.by(() => {
 		const entries: [string, number][] = [];
@@ -125,31 +119,18 @@
 			}
 
 			const { id: tripId } = await tripRes.json();
-			const packingList = getPackingListForTrip(selectedActivities, climate);
-			const presetItems = selectedPreset?.items ?? [];
+			const initialItems = getInitialTripItems(
+				selectedActivities,
+				climate,
+				selectedPreset?.items ?? []
+			);
 
 			await fetch('/api/packing-items', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					tripId,
-					items: [
-						...packingList.map((item) => ({
-							name: item.name,
-							category: item.category,
-							quantity: item.quantity,
-							isCustom: false,
-							priority: 'normal'
-						})),
-						...presetItems.map((item) => ({
-							name: item.name,
-							category: item.category,
-							quantity: item.quantity,
-							isCustom: true,
-							notes: item.notes ?? undefined,
-							priority: item.priority
-						}))
-					]
+					items: initialItems
 				})
 			});
 
@@ -175,18 +156,7 @@
 </script>
 
 <div class="min-h-screen bg-surface font-sans text-slate-900">
-	<header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-sm">
-		<div class="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
-			<a href="/app" class="flex items-center gap-2 text-lg font-bold tracking-tight">
-				<span
-					class="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-xs text-white"
-					>P</span
-				>
-				PackPal
-			</a>
-			<a href="/app" class="text-sm font-medium text-slate-500 hover:text-slate-700">Cancel</a>
-		</div>
-	</header>
+	<AppHeader backHref="/app" backLabel="Cancel" />
 
 	<main class="mx-auto max-w-4xl px-6 py-8">
 		<div class="mb-8">

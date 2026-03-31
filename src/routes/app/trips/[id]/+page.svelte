@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { CATEGORIES } from '$lib/data/packing-templates';
 	import type { Climate } from '$lib/data/packing-templates';
 	import {
@@ -115,6 +116,19 @@
 		}, 5000);
 	}
 
+	async function readErrorMessage(response: Response, fallback: string) {
+		try {
+			const data = await response.json();
+			if (data?.error && typeof data.error === 'string') {
+				return data.error;
+			}
+		} catch {
+			// Ignore malformed error payloads and use fallback.
+		}
+
+		return fallback;
+	}
+
 	async function loadData() {
 		loading = true;
 		loadError = false;
@@ -204,7 +218,10 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ tripId, item: newItem })
 		});
-		if (!res.ok) return;
+		if (!res.ok) {
+			showToast(await readErrorMessage(res, 'Failed to add item.'));
+			return;
+		}
 		const { id } = await res.json();
 		items = [
 			...items,
@@ -267,7 +284,10 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ action: 'update', ...data })
 		});
-		if (!res.ok) return;
+		if (!res.ok) {
+			showToast(await readErrorMessage(res, 'Failed to save item changes.'));
+			return;
+		}
 		items = items.map((item) =>
 			item.id === data.id
 				? {
@@ -397,25 +417,16 @@
 </script>
 
 <div class="min-h-screen bg-surface font-sans text-slate-900">
-	<header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-sm">
-		<div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-			<a href="/app" class="flex items-center gap-2 text-lg font-bold tracking-tight">
-				<span
-					class="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-xs text-white"
-					>P</span
-				>
-				PackPal
+	<AppHeader backHref="/app" backLabel="Back to trips">
+		{#snippet actions()}
+			<a
+				href="/app/trips/{tripId}/chat"
+				class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+			>
+				AI Assistant
 			</a>
-			<div class="flex items-center gap-2">
-				<a
-					href="/app/trips/{tripId}/chat"
-					class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-				>
-					AI Assistant
-				</a>
-			</div>
-		</div>
-	</header>
+		{/snippet}
+	</AppHeader>
 
 	<main class="mx-auto max-w-6xl px-6 py-8">
 		{#if loadError}
@@ -450,21 +461,6 @@
 						<!-- Trip header info -->
 						<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 							<div>
-								<a
-									href="/app"
-									class="mb-2 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
-								>
-									<svg
-										class="h-4 w-4"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg
-									>
-									Back to trips
-								</a>
 								<div class="flex flex-wrap items-center gap-2">
 									<h1 class="text-2xl font-bold">{trip.name}</h1>
 									{#if trip.isShared}

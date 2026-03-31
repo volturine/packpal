@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AppHeader from '$lib/components/AppHeader.svelte';
 	import type { ChatMessage, PackingItem, PackingItemPriority, Trip } from '$lib/types';
 
 	const { data } = $props();
@@ -291,33 +292,18 @@
 </script>
 
 <div class="flex min-h-screen flex-col bg-surface font-sans text-slate-900">
-	<header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-sm">
-		<div class="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
-			<a
-				href="/app/trips/{tripId}"
-				class="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
-			>
-				<svg
-					class="h-4 w-4"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg
-				>
-				Back to trip
-			</a>
+	<AppHeader backHref="/app/trips/{tripId}" backLabel="Back to trip">
+		{#snippet actions()}
 			<div class="flex items-center gap-2">
-				<span class="text-sm font-medium text-slate-700">{trip ? trip.name : 'Loading...'}</span
-				><span
+				<span class="text-sm font-medium text-slate-700">{trip ? trip.name : 'Loading...'}</span>
+				<span
 					class="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-xs text-white"
-					>AI</span
 				>
+					AI
+				</span>
 			</div>
-			<div></div>
-		</div>
-	</header>
+		{/snippet}
+	</AppHeader>
 
 	{#if loadError}
 		<div class="flex flex-1 items-center justify-center">

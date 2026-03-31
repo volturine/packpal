@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { formatActivityNames } from '$lib/packing-insights';
 	import { formatDate, reminderClasses } from '$lib/format';
-	import type { AuthUser, Trip } from '$lib/types';
-
-	const auth = getContext<{ user: AuthUser | null; logout: () => Promise<void> }>('auth');
+	import type { Trip } from '$lib/types';
 
 	let trips = $state<Trip[]>([]);
 	let loading = $state(true);
@@ -114,36 +112,16 @@
 </script>
 
 <div class="min-h-screen bg-surface font-sans text-slate-900">
-	<header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-sm">
-		<div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-			<a href="/app" class="flex items-center gap-2 text-lg font-bold tracking-tight">
-				<span
-					class="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-xs text-white"
-					>P</span
-				>
-				PackPal
+	<AppHeader>
+		{#snippet actions()}
+			<a
+				href="/app/trips/new"
+				class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-700"
+			>
+				+ New Trip
 			</a>
-			<div class="flex items-center gap-3">
-				<a
-					href="/app/trips/new"
-					class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-700"
-				>
-					+ New Trip
-				</a>
-				<div class="flex items-center gap-2">
-					<a href="/app/profile" class="text-sm text-slate-600 hover:text-brand-600"
-						>{auth.user?.displayName}</a
-					>
-					<button
-						onclick={auth.logout}
-						class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-					>
-						Sign out
-					</button>
-				</div>
-			</div>
-		</div>
-	</header>
+		{/snippet}
+	</AppHeader>
 
 	<main class="mx-auto max-w-6xl px-6 py-8">
 		{#if loading}
