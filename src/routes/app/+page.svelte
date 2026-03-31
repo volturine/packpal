@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { formatActivityNames } from '$lib/packing-insights';
-	import type { AuthUser, ReminderSummary, Trip } from '$lib/types';
+	import { formatDate, reminderClasses } from '$lib/format';
+	import type { AuthUser, Trip } from '$lib/types';
 
 	const auth = getContext<{ user: AuthUser | null; logout: () => Promise<void> }>('auth');
 
@@ -22,14 +23,6 @@
 		} finally {
 			loading = false;
 		}
-	}
-
-	function formatDate(ts: number) {
-		return new Date(ts).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
 	}
 
 	function tripProgress(trip: Trip) {
@@ -115,12 +108,6 @@
 		);
 	}
 
-	function reminderClasses(tone: ReminderSummary['tone']) {
-		if (tone === 'urgent') return 'bg-red-50 text-red-700 border-red-200';
-		if (tone === 'warning') return 'bg-amber-50 text-amber-700 border-amber-200';
-		return 'bg-slate-50 text-slate-600 border-slate-200';
-	}
-
 	$effect(() => {
 		loadTrips();
 	});
@@ -144,7 +131,9 @@
 					+ New Trip
 				</a>
 				<div class="flex items-center gap-2">
-					<span class="text-sm text-slate-600">{auth.user?.displayName}</span>
+					<a href="/app/profile" class="text-sm text-slate-600 hover:text-brand-600"
+						>{auth.user?.displayName}</a
+					>
 					<button
 						onclick={auth.logout}
 						class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"

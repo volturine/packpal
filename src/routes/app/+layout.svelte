@@ -24,6 +24,9 @@
 			user = null;
 			isLogin = true;
 			authError = '';
+		},
+		updateUser: (updated: AuthUser) => {
+			user = updated;
 		}
 	};
 

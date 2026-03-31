@@ -4,8 +4,17 @@ import { createSession, setSessionCookie, verifyPassword } from '$lib/server/aut
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
+import { rateLimitByIp } from '$lib/server/rate-limit';
 
 export const POST: RequestHandler = async (event) => {
+	const { allowed, retryAfterMs } = rateLimitByIp(event, 'auth:login', 10, 60_000);
+	if (!allowed) {
+		return json(
+			{ error: 'Too many login attempts. Try again later.' },
+			{ status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
+		);
+	}
+
 	const body = await event.request.json();
 	const { username, password } = body as { username: string; password: string };
 

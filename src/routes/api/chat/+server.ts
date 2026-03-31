@@ -1,6 +1,7 @@
 import { OPENROUTER_API_KEY } from '$env/static/private';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { rateLimitByIp } from '$lib/server/rate-limit';
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
@@ -90,7 +91,15 @@ Rules:
 - Avoid generic filler and avoid repeating the obvious.`;
 }
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, getClientAddress }) => {
+	const { allowed, retryAfterMs } = rateLimitByIp({ getClientAddress }, 'chat:ai', 20, 60_000);
+	if (!allowed) {
+		return json(
+			{ error: 'Too many AI requests. Try again later.' },
+			{ status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
+		);
+	}
+
 	if (!OPENROUTER_API_KEY) {
 		return json({ error: 'OPENROUTER_API_KEY not configured' }, { status: 500 });
 	}

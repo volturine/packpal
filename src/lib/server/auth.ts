@@ -3,10 +3,7 @@ import { db } from './db';
 import { sessions, users } from './schema';
 import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
-
-function generateId(): string {
-	return randomBytes(16).toString('hex');
-}
+import { generateId } from './utils';
 
 export function hashPassword(password: string): string {
 	const salt = randomBytes(16).toString('hex');
@@ -82,7 +79,7 @@ export function setSessionCookie(event: RequestEvent, sessionId: string) {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: false, // set true in production behind HTTPS
+		secure: process.env.NODE_ENV === 'production',
 		maxAge: 30 * 24 * 60 * 60 // 30 days
 	});
 }

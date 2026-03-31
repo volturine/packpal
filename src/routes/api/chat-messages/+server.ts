@@ -3,15 +3,13 @@ import type { RequestHandler } from './$types';
 import { getSessionFromCookies } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { chatMessages } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
-import { randomBytes } from 'node:crypto';
+import { and, eq, lt, desc } from 'drizzle-orm';
 import { getAccessibleTripById } from '$lib/server/trip-access';
+import { generateId } from '$lib/server/utils';
 
-function generateId(): string {
-	return randomBytes(16).toString('hex');
-}
+const PAGE_SIZE = 50;
 
-// GET /api/chat-messages?tripId=xxx
+// GET /api/chat-messages?tripId=xxx&before=timestamp&limit=50
 export const GET: RequestHandler = async (event) => {
 	const session = getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
@@ -22,8 +20,26 @@ export const GET: RequestHandler = async (event) => {
 	const trip = getAccessibleTripById(session.userId, tripId);
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-	const messages = db.select().from(chatMessages).where(eq(chatMessages.tripId, tripId)).all();
-	return json(messages);
+	const before = event.url.searchParams.get('before');
+	const limit = Math.min(Number(event.url.searchParams.get('limit')) || PAGE_SIZE, 100);
+
+	const conditions = [eq(chatMessages.tripId, tripId)];
+	if (before) {
+		conditions.push(lt(chatMessages.createdAt, Number(before)));
+	}
+
+	const messages = db
+		.select()
+		.from(chatMessages)
+		.where(and(...conditions))
+		.orderBy(desc(chatMessages.createdAt))
+		.limit(limit + 1)
+		.all();
+
+	const hasMore = messages.length > limit;
+	const page = hasMore ? messages.slice(0, limit) : messages;
+
+	return json({ messages: page.reverse(), hasMore });
 };
 
 // POST /api/chat-messages - add a message

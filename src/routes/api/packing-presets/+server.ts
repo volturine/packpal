@@ -4,12 +4,8 @@ import { getSessionFromCookies } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { packingItems, packingPresets } from '$lib/server/schema';
 import { desc, eq } from 'drizzle-orm';
-import { randomBytes } from 'node:crypto';
 import { getAccessibleTripById } from '$lib/server/trip-access';
-
-function generateId(): string {
-	return randomBytes(16).toString('hex');
-}
+import { generateId, sanitizeText } from '$lib/server/utils';
 
 export const GET: RequestHandler = async (event) => {
 	const session = getSessionFromCookies(event);
@@ -53,7 +49,7 @@ export const POST: RequestHandler = async (event) => {
 			.values({
 				id: presetId,
 				userId: session.userId,
-				name: name.trim() || `${trip.name} preset`,
+				name: sanitizeText(name) || `${trip.name} preset`,
 				items,
 				createdAt: Date.now(),
 				lastUsedAt: null
@@ -83,7 +79,7 @@ export const POST: RequestHandler = async (event) => {
 		.values({
 			id,
 			userId: session.userId,
-			name: name.trim(),
+			name: sanitizeText(name),
 			items,
 			createdAt: Date.now(),
 			lastUsedAt: null

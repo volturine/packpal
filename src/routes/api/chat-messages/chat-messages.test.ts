@@ -141,7 +141,7 @@ describe('GET /api/chat-messages', () => {
 		const data = await response.json();
 
 		expect(response.status).toBe(200);
-		expect(data).toEqual([]);
+		expect(data).toEqual({ messages: [], hasMore: false });
 	});
 
 	it('returns 404 for non-accessible trip', async () => {

@@ -25,11 +25,13 @@ import { POST as loginPOST } from './login/+server';
 import { POST as logoutPOST } from './logout/+server';
 import { GET as meGET } from './me/+server';
 import { clearAllTables } from '$lib/server/test-db-helpers';
+import { resetRateLimitStore } from '$lib/server/rate-limit';
 
 beforeEach(() => {
 	if (helpers.sqliteRef) {
 		clearAllTables(helpers.sqliteRef);
 	}
+	resetRateLimitStore();
 });
 
 /** Create a minimal mock RequestEvent */

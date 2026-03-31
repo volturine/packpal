@@ -3,13 +3,9 @@ import type { RequestHandler } from './$types';
 import { getSessionFromCookies } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { packingItems } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
-import { randomBytes } from 'node:crypto';
+import { eq, inArray, and } from 'drizzle-orm';
 import { getAccessibleTripById } from '$lib/server/trip-access';
-
-function generateId(): string {
-	return randomBytes(16).toString('hex');
-}
+import { generateId, sanitizeText } from '$lib/server/utils';
 
 // GET /api/packing-items?tripId=xxx
 export const GET: RequestHandler = async (event) => {
@@ -65,12 +61,12 @@ export const POST: RequestHandler = async (event) => {
 					id,
 					tripId,
 					userId: session.userId,
-					name: currentItem.name,
+					name: sanitizeText(currentItem.name),
 					category: currentItem.category,
 					quantity: currentItem.quantity,
 					isCustom: currentItem.isCustom,
 					packed: false,
-					notes: currentItem.notes || null,
+					notes: currentItem.notes ? sanitizeText(currentItem.notes) : null,
 					priority: currentItem.priority ?? 'normal'
 				})
 				.run();
@@ -86,12 +82,12 @@ export const POST: RequestHandler = async (event) => {
 				id,
 				tripId,
 				userId: session.userId,
-				name: item.name,
+				name: sanitizeText(item.name),
 				category: item.category,
 				quantity: item.quantity,
 				isCustom: true,
 				packed: false,
-				notes: item.notes || null,
+				notes: item.notes ? sanitizeText(item.notes) : null,
 				priority: item.priority ?? 'normal'
 			})
 			.run();
@@ -137,10 +133,10 @@ export const PATCH: RequestHandler = async (event) => {
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
 		const updateFields: Record<string, unknown> = {};
-		if (name !== undefined) updateFields.name = name;
+		if (name !== undefined) updateFields.name = sanitizeText(name);
 		if (category !== undefined) updateFields.category = category;
 		if (quantity !== undefined) updateFields.quantity = quantity;
-		if (notes !== undefined) updateFields.notes = notes;
+		if (notes !== undefined) updateFields.notes = notes ? sanitizeText(notes) : null;
 		if (priority !== undefined) updateFields.priority = priority;
 
 		if (Object.keys(updateFields).length > 0) {
@@ -159,13 +155,14 @@ export const PATCH: RequestHandler = async (event) => {
 		const trip = getAccessibleTripById(session.userId, tripId);
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-		let items = db.select().from(packingItems).where(eq(packingItems.tripId, tripId)).all();
-		if (category) items = items.filter((item) => item.category === category);
-		if (filteredItemIds?.length) items = items.filter((item) => filteredItemIds.includes(item.id));
+		const conditions = [eq(packingItems.tripId, tripId)];
+		if (category) conditions.push(eq(packingItems.category, category));
+		if (filteredItemIds?.length) conditions.push(inArray(packingItems.id, filteredItemIds));
 
-		for (const item of items) {
-			db.update(packingItems).set({ packed }).where(eq(packingItems.id, item.id)).run();
-		}
+		db.update(packingItems)
+			.set({ packed })
+			.where(and(...conditions))
+			.run();
 		return json({ ok: true });
 	}
 
@@ -179,17 +176,13 @@ export const PATCH: RequestHandler = async (event) => {
 		const trip = getAccessibleTripById(session.userId, tripId);
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-		let tripItems = db
-			.select({ id: packingItems.id })
-			.from(packingItems)
-			.where(eq(packingItems.tripId, tripId))
-			.all();
-		if (filteredItemIds?.length)
-			tripItems = tripItems.filter((item) => filteredItemIds.includes(item.id));
+		const conditions = [eq(packingItems.tripId, tripId)];
+		if (filteredItemIds?.length) conditions.push(inArray(packingItems.id, filteredItemIds));
 
-		for (const item of tripItems) {
-			db.update(packingItems).set({ packed }).where(eq(packingItems.id, item.id)).run();
-		}
+		db.update(packingItems)
+			.set({ packed })
+			.where(and(...conditions))
+			.run();
 
 		return json({ ok: true });
 	}

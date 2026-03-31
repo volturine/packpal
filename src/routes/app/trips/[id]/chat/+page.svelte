@@ -7,6 +7,8 @@
 	let trip = $state<Trip | null>(null);
 	let items = $state<PackingItem[]>([]);
 	let messages = $state<ChatMessage[]>([]);
+	let hasMoreMessages = $state(false);
+	let loadingOlder = $state(false);
 	let loadError = $state(false);
 	let loading = $state(true);
 	let inputText = $state('');
@@ -79,11 +81,44 @@
 			}
 			trip = await tripRes.json();
 			items = await itemsRes.json();
-			messages = await messagesRes.json();
+			const chatData = await messagesRes.json();
+			messages = chatData.messages;
+			hasMoreMessages = chatData.hasMore;
 		} catch {
 			loadError = true;
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadOlderMessages() {
+		if (loadingOlder || !hasMoreMessages || messages.length === 0) return;
+		loadingOlder = true;
+
+		const oldestTimestamp = messages[0].createdAt;
+		const prevScrollHeight = chatContainer?.scrollHeight ?? 0;
+
+		try {
+			const res = await fetch(`/api/chat-messages?tripId=${tripId}&before=${oldestTimestamp}`);
+			if (!res.ok) return;
+			const chatData = await res.json();
+			messages = [...chatData.messages, ...messages];
+			hasMoreMessages = chatData.hasMore;
+
+			requestAnimationFrame(() => {
+				if (chatContainer) {
+					chatContainer.scrollTop = chatContainer.scrollHeight - prevScrollHeight;
+				}
+			});
+		} finally {
+			loadingOlder = false;
+		}
+	}
+
+	function handleScroll() {
+		if (!chatContainer || loadingOlder || !hasMoreMessages) return;
+		if (chatContainer.scrollTop < 100) {
+			loadOlderMessages();
 		}
 	}
 
@@ -310,8 +345,20 @@
 			></div>
 		</div>
 	{:else}
-		<div bind:this={chatContainer} class="flex-1 overflow-y-auto">
+		<div bind:this={chatContainer} onscroll={handleScroll} class="flex-1 overflow-y-auto">
 			<div class="mx-auto max-w-4xl px-6 py-6">
+				{#if hasMoreMessages}
+					<div class="mb-4 text-center">
+						<button
+							onclick={loadOlderMessages}
+							disabled={loadingOlder}
+							class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+						>
+							{loadingOlder ? 'Loading...' : 'Load older messages'}
+						</button>
+					</div>
+				{/if}
+
 				{#if trip}
 					<div class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 						<div class="grid gap-3 md:grid-cols-2">

@@ -4,14 +4,10 @@ import { getSessionFromCookies } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { chatMessages, packingItems, tripCollaborators, trips, users } from '$lib/server/schema';
 import { and, eq } from 'drizzle-orm';
-import { randomBytes } from 'node:crypto';
 import { getPackingListForTrip, type Climate } from '$lib/data/packing-templates';
 import { enrichTrip } from '$lib/server/trip-enrichment';
 import { getAccessibleTripById, getAccessibleTrips } from '$lib/server/trip-access';
-
-function generateId(): string {
-	return randomBytes(16).toString('hex');
-}
+import { generateId, sanitizeText } from '$lib/server/utils';
 
 // GET /api/trips - list all trips for current user
 export const GET: RequestHandler = async (event) => {
@@ -88,15 +84,15 @@ export const POST: RequestHandler = async (event) => {
 		.values({
 			id,
 			userId: session.userId,
-			name: name.trim(),
-			destination: destination.trim(),
-			country: country?.trim() || null,
+			name: sanitizeText(name),
+			destination: sanitizeText(destination),
+			country: country ? sanitizeText(country) : null,
 			startDate,
 			endDate,
 			activities,
 			climate,
 			travelers,
-			notes: notes?.trim() || null,
+			notes: notes ? sanitizeText(notes) : null,
 			archivedAt: null,
 			createdAt: Date.now()
 		})
@@ -129,8 +125,14 @@ export const PATCH: RequestHandler = async (event) => {
 	}
 
 	const updateFields: Record<string, unknown> = {};
+	const textFields = ['name', 'destination', 'country', 'notes'];
 	for (const [key, value] of Object.entries(fields)) {
-		if (value !== undefined) updateFields[key] = value;
+		if (value === undefined) continue;
+		if (textFields.includes(key) && typeof value === 'string') {
+			updateFields[key] = sanitizeText(value) || null;
+		} else {
+			updateFields[key] = value;
+		}
 	}
 
 	const nextActivities = Array.isArray(fields.activities)
