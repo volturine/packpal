@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Database } from 'bun:sqlite';
+import { DatabaseSync as Database } from 'node:sqlite';
 
 // Set up in-memory test DB mock
 const helpers = vi.hoisted(() => {
@@ -7,17 +7,16 @@ const helpers = vi.hoisted(() => {
 });
 
 vi.mock('$lib/server/db', async () => {
-	const { Database } = await import('bun:sqlite');
+	const { DatabaseSync: Database } = await import('node:sqlite');
 	const { TEST_DDL } = await import('$lib/server/test-db-helpers');
-	const { drizzle } = await import('drizzle-orm/bun-sqlite');
-	const schema = await import('$lib/server/schema');
+	const { drizzle } = await import('drizzle-orm/node-sqlite');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
 	sqlite.exec(TEST_DDL);
 	helpers.sqliteRef = sqlite;
 
-	return { db: drizzle(sqlite, { schema }) };
+	return { db: drizzle({ client: sqlite }) };
 });
 
 import { GET, POST, PATCH, DELETE } from './+server';
@@ -423,7 +422,7 @@ describe('DELETE /api/trips', () => {
 
 		// Trip should be gone
 		const trip = helpers.sqliteRef!.prepare('SELECT id FROM trips WHERE id = ?').get('trip-1');
-		expect(trip).toBeNull();
+		expect(trip).toBeUndefined();
 
 		// Packing items should be gone
 		const items = helpers
@@ -498,6 +497,6 @@ describe('DELETE /api/trips', () => {
 		const collab = helpers
 			.sqliteRef!.prepare('SELECT id FROM trip_collaborators WHERE trip_id = ? AND user_id = ?')
 			.get('trip-1', 'user-2');
-		expect(collab).toBeNull();
+		expect(collab).toBeUndefined();
 	});
 });

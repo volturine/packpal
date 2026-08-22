@@ -20,14 +20,6 @@ export default defineConfig({
 		}
 	},
 	test: {
-		include: ['src/**/*.test.ts'],
-		alias: {
-			'bun:sqlite': path.resolve('./scripts/bun-sqlite-shim.ts')
-		},
-		server: {
-			deps: {
-				inline: ['drizzle-orm/bun-sqlite']
-			}
-		}
+		include: ['src/**/*.test.ts']
 	}
 });

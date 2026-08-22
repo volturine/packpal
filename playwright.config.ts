@@ -16,7 +16,7 @@ export default defineConfig({
 		trace: 'on-first-retry'
 	},
 	webServer: {
-		command: `DATABASE_PATH=${TEST_DB_PATH} bun run dev -- --port ${TEST_PORT}`,
+		command: `DATABASE_PATH=${TEST_DB_PATH} npm run dev -- --port ${TEST_PORT}`,
 		url: `http://localhost:${TEST_PORT}`,
 		reuseExistingServer: !process.env.CI,
 		timeout: 30000,
