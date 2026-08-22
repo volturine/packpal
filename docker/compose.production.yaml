@@ -1,0 +1,24 @@
+name: packpal
+
+services:
+  app:
+    image: '${PACKPAL_IMAGE:?Set PACKPAL_IMAGE to a pinned release tag or digest in .env}'
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    ports:
+      - '${PACKPAL_PORT:-3000}:3000'
+    environment:
+      ORIGIN: ${PACKPAL_ORIGIN:?Set PACKPAL_ORIGIN in .env}
+      DATABASE_PATH: /data/packpal.db
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    volumes:
+      - packpal-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  packpal-data:

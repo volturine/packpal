@@ -1,4 +1,4 @@
-import { OPENROUTER_API_KEY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { rateLimitByIp } from '$lib/server/rate-limit';
@@ -99,6 +99,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			{ status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
 		);
 	}
+
+	const OPENROUTER_API_KEY = env.OPENROUTER_API_KEY;
 
 	if (!OPENROUTER_API_KEY) {
 		return json({ error: 'OPENROUTER_API_KEY not configured' }, { status: 500 });

@@ -19,5 +19,5 @@ Project guidelines:
 - API routes under `src/routes/api/` — auth, trips, packing-items, chat-messages, chat (AI)
 - packing template data in `src/lib/data/packing-templates.ts`
 - SQLite database file stored in `data/packpal.db` (auto-created on first run)
-- Docker deployment: `docker compose up` with SQLite volume at `/app/data`
+- Docker deployment: compose files in `docker/` (`compose.yaml` dev build, `compose.production.yaml` pinned image, `compose.tailscale.yaml` Tailscale Serve overlay); run with `docker compose --project-directory . -f docker/compose.yaml up -d`; SQLite volume `packpal-data` at `/data`
 - AI chat uses OpenRouter API (OPENROUTER_API_KEY env var, optional)

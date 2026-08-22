@@ -1,0 +1,27 @@
+name: packpal
+
+services:
+  app:
+    build:
+      # Requires: docker compose --project-directory . -f docker/compose.yaml up --build
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: packpal:latest
+    restart: unless-stopped
+    init: true
+    ports:
+      - '${PACKPAL_PORT:-3000}:3000'
+    environment:
+      ORIGIN: ${PACKPAL_ORIGIN:-http://localhost:${PACKPAL_PORT:-3000}}
+      DATABASE_PATH: /data/packpal.db
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    volumes:
+      - packpal-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  packpal-data:
