@@ -1,0 +1,25 @@
+name: packpal-dev
+
+services:
+  app:
+    image: '${PACKPAL_IMAGE:?Set PACKPAL_IMAGE in .env.dev}'
+    platform: linux/amd64
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    ports:
+      - '${PACKPAL_PORT:-3200}:3000'
+    environment:
+      ORIGIN: ${PACKPAL_ORIGIN:?Set PACKPAL_ORIGIN in .env.dev}
+      DATABASE_PATH: /data/packpal.db
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    volumes:
+      - packpal-dev-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  packpal-dev-data:
