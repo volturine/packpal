@@ -47,7 +47,8 @@
 		"test": "playwright test",
 		"test:unit": "vitest run",
 		"test:unit:watch": "vitest",
-		"test:ui": "playwright test --ui"
+		"test:ui": "playwright test --ui",
+		"validate": "npm run lint && npm run check && npm run test:unit && npm run build"
 	},
 	"type": "module"
 }

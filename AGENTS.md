@@ -1,121 +1,56 @@
-# PackPal — agent guide
+# PackPal
 
-Smart packing helper for trips.
+Smart packing helper for trips: packing lists with templates, collaborators, and AI-assisted suggestions, backed by SQLite.
 
-Tech stack: SvelteKit (Svelte 5), SQLite (node:sqlite + drizzle-orm), local auth
-(scrypt), TailwindCSS v4, adapter-node.
+**Stack:** Node.js 24 + SvelteKit 5 + TypeScript · Tailwind CSS 4 · node:sqlite · drizzle-orm · npm
 
-## Prerequisites
+## Commands
 
-- Node.js **24** (`.nvmrc`, `package.json` `engines`)
-- npm
-- Optional: Docker for Compose workflows
-
-## Project guidelines
-
-- use npm as the package manager (Node 24, see `.nvmrc`)
-- when installing new packages, use `npm install <pkg>` instead of manually
-  editing the `package.json` file
-- use modern Svelte 5 patterns and primitives (runes: `$state`, `$effect`,
-  `$props`, `$derived`)
-- avoid `as any` at all costs; infer types from functions where possible
-- use TailwindCSS for styling; only resort to custom CSS if needed
-- every Svelte component should have `lang="ts"`
-- the `/app` route tree is client-rendered only (`ssr = false` in `+layout.ts`)
-- match existing TypeScript / Svelte style in nearby files; no drive-by
-  refactors unrelated to the change
-- do not commit `.env`, `.env.dev`, credentials, or real user data
-
-## Scripts
-
-| Script                 | Description                                   |
-| ---------------------- | --------------------------------------------- |
-| `npm run dev`          | Vite dev server (SvelteKit)                   |
-| `npm run build`        | Production build (`adapter-node` → `build/`)  |
-| `npm run preview`      | Preview the production build                  |
-| `npm run lint`         | Prettier check + ESLint                       |
-| `npm run format`       | Write Prettier formatting                     |
-| `npm run check`        | `svelte-check` with native TypeScript         |
-| `npm run test:unit`    | Vitest unit tests                             |
-| `npm run test`         | Playwright e2e (isolated test DB, port 5199)  |
-| `npm run test:ui`      | Playwright with UI                            |
-
-Validate before you push: `npm run lint && npm run check && npm run test:unit`
-plus `npm run build` for non-trivial changes.
-
-## Project map
-
-| Path                                | Role                                        |
-| ----------------------------------- | ------------------------------------------- |
-| `src/lib/components/`               | UI components                               |
-| `src/lib/types.ts`                  | Shared TypeScript interfaces                |
-| `src/lib/data/packing-templates.ts` | Packing template data                       |
-| `src/lib/server/`                   | Auth (scrypt), db, schema, rate limiting,   |
-|                                     | trip access, trip enrichment                |
-| `src/routes/api/`                   | auth, trips, packing-items,                 |
-|                                     | packing-presets, chat-messages, chat (AI)   |
-| `src/lib/server/db.ts`              | node:sqlite connection (WAL mode, inline    |
-|                                     | migrations)                                 |
-| `src/lib/server/schema.ts`          | drizzle-orm schema                          |
-| `docker/`                           | Compose templates and image                 |
-| `.github/`                          | CI/CD workflow, Dependabot                  |
-
-SQLite database file is stored in `data/packpal.db` (gitignored, auto-created
-on first run). Override with `DATABASE_PATH`.
-
-## Testing layout
-
-- Co-located unit tests next to the code they cover (`*.test.ts`)
-- Route tests mock `$lib/server/db` with an in-memory `node:sqlite` database
-  (`src/lib/server/test-db-helpers.ts` has shared DDL and seed helpers)
-- Prefer tests for: auth/session edge cases, trip access control (owner vs
-  collaborator), rate limiting, and request validation
-
-## Docker deployment
-
-Compose files live in `docker/`:
-
-- `compose.yaml` — dev/local build from source
-- `compose.production.yaml` — pinned image from `PACKPAL_IMAGE`
-- `compose.dev.yaml` — preview stack for CI-published `dev-*` PR images
-- `compose.tailscale.yaml` — Tailscale Serve overlay (tailnet-only, no Funnel)
-
-```sh
-# dev build
-docker compose --project-directory . -f docker/compose.yaml up -d --build
-
-# production
-docker compose --project-directory . \
-  -f docker/compose.production.yaml --env-file .env up -d
-
-# dev preview with Tailscale (uses .env.dev)
-docker compose --project-directory . -p packpal-dev \
-  -f docker/compose.dev.yaml -f docker/compose.tailscale.yaml \
-  --env-file .env.dev up -d
+```bash
+npm install                 # install dependencies
+npm run dev                 # start the Vite/SvelteKit development server
+npm run check               # Svelte and TypeScript diagnostics
+npm run lint                # Prettier check + ESLint
+npm run format              # Prettier write
+npm run test:unit           # Vitest unit tests
+npm run test                # Playwright e2e (isolated test DB, port 5199)
+npm run build               # production build
+npm run validate            # lint + check + unit tests + production build
 ```
 
-SQLite lives in the `packpal-data` volume at `/data`; Tailscale state in
-`tailscale-state`. Behind Tailscale Serve, set `ORIGIN`/`PACKPAL_ORIGIN` to the
-`https://<host>.<tailnet>.ts.net` URL (required for CSRF).
+- Use npm commands for dependency changes; do not hand-edit `package.json` or the lockfile.
+- Prefer the existing npm scripts over ad-hoc scripts.
+- Use Svelte 5 runes (`$state`, `$effect`, `$props`, `$derived`); every component has `lang="ts"`.
+- Avoid `as any`; infer types from functions where possible. Use TailwindCSS; custom CSS only when needed.
 
-## CI
+## Definition of done
 
-GitHub Actions workflow: `.github/workflows/ci-cd.yaml`.
+Code/config: `npm run validate` && `npm run test` before done or review. Markdown-only: skip unless asked.
 
-- **validate** job: lint + typecheck + unit tests + production build (required
-  PR check)
-- **image** job: Docker build; PRs publish `dev-*` tags only, `master`
-  publishes `latest` / `master` / `sha-*`, `v*` tags add semver tags for use as
-  `PACKPAL_IMAGE`
+- Fix failures and warnings immediately (pre-existing ones when you touch the area). Unfixable third-party stub warnings: inline comment why.
+- Add backend tests for new/changed backend behavior. Route tests mock `$lib/server/db` with an in-memory `node:sqlite` database (`src/lib/server/test-db-helpers.ts` has shared DDL and seed helpers).
 
-Dependabot (`.github/dependabot.yml`) updates npm, Docker, and GitHub Actions
-weekly.
+## PackPal security
 
-## Debugging tips
+- Never log passwords, password hashes, session tokens, `OPENROUTER_API_KEY`, or other secrets.
+- Treat changes to auth/session handling (scrypt, cookies), trip access control (owner vs collaborator), rate limiting, the AI chat proxy, and CSRF/`ORIGIN` handling as security-sensitive.
+- Add focused tests and perform an extra review for changes in those areas.
+- Do not commit `.env`, `.env.dev`, credentials, or real user data.
 
-- AI chat needs `OPENROUTER_API_KEY`; the endpoint returns 500 with a clear
-  message when unset — everything else works without it
-- CSRF failures usually mean `ORIGIN` does not match the address the browser
-  uses; check it first when deployments 403 on POST
-- Rate limits are in-memory per process (`src/lib/server/rate-limit.ts`);
-  restarting the server clears them
+## Principles
+
+- Do not preserve backward compatibility. Remove obsolete paths instead of adding compatibility layers, fallbacks, or migrations.
+- Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection.
+- Grow the system in layers. Start from the smallest version that works end to end, and add each new capability on top of a product that already works. Never trade a working product for unfinished complexity.
+- Keep components modular and concerns clearly separated.
+- Prefer established, well-maintained libraries when they reduce overall complexity or improve reliability. Do not reimplement common functionality without a clear reason.
+- Lean on the dependencies already in the project before writing your own implementation or adding packages. Do not assume a library lacks a capability without checking its documentation and types.
+- Make architectural decisions for the long term. Do not accept a stopgap that only works for now and is meant to be replaced later.
+
+## Problem solving
+
+- Start from the intended outcome, then trace the behavior across every relevant layer before changing code.
+- Form a causal explanation and actively look for evidence that disproves it.
+- Fix the cause where the responsibility belongs. Prefer clear ownership and isolation boundaries over patches at the point where symptoms appear.
+- When one fix reveals another failure, investigate it independently instead of forcing it into the previous explanation.
+- Before finishing, be able to explain the root cause, why the symptoms were misleading, what now prevents recurrence, and what evidence proves the fix.
