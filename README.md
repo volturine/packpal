@@ -2,6 +2,8 @@
 
 Smart packing helper for trips. SvelteKit (Svelte 5) + SQLite (node:sqlite + drizzle-orm), local auth, TailwindCSS v4.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 ## Development
 
 ```sh
@@ -68,3 +70,16 @@ SQLite data lives in the `packpal-data` volume; Tailscale state in `tailscale-st
   - `v*` tags additionally get semver tags (`1.2.3`, `1.2`) for use as `PACKPAL_IMAGE`
 
 Dependabot keeps GitHub Actions, the Docker base image, and npm dependencies up to date weekly.
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
+validation, and pull request guidelines.
+
+- **Security** — private report via [SECURITY.md](SECURITY.md) (do not open a
+  public issue)
+- **Conduct** — [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
+## License
+
+[MIT](LICENSE)
