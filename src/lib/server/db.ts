@@ -1,6 +1,5 @@
-import { Database } from 'bun:sqlite';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
-import * as schema from './schema';
+import { DatabaseSync } from 'node:sqlite';
+import { drizzle } from 'drizzle-orm/node-sqlite';
 import path from 'node:path';
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'packpal.db');
@@ -9,11 +8,11 @@ const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'p
 import { mkdirSync } from 'node:fs';
 mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
-const sqlite = new Database(DB_PATH);
+const sqlite = new DatabaseSync(DB_PATH);
 sqlite.exec('PRAGMA journal_mode = WAL');
 sqlite.exec('PRAGMA foreign_keys = ON');
 
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle({ client: sqlite });
 
 // Run migrations inline (create tables if they don't exist)
 sqlite.exec(`
@@ -100,12 +99,12 @@ sqlite.exec(`
   CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id);
 `);
 
-const tripColumns = sqlite.query('PRAGMA table_info(trips)').all() as { name: string }[];
+const tripColumns = sqlite.prepare('PRAGMA table_info(trips)').all() as { name: string }[];
 if (!tripColumns.some((column) => column.name === 'archived_at')) {
 	sqlite.exec('ALTER TABLE trips ADD COLUMN archived_at INTEGER');
 }
 
-const packingItemColumns = sqlite.query('PRAGMA table_info(packing_items)').all() as {
+const packingItemColumns = sqlite.prepare('PRAGMA table_info(packing_items)').all() as {
 	name: string;
 }[];
 if (!packingItemColumns.some((column) => column.name === 'priority')) {

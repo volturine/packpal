@@ -1,6 +1,6 @@
 /**
  * Shared test database helpers for integration tests.
- * Uses bun:sqlite in-memory databases for test isolation.
+ * Uses node:sqlite in-memory databases for test isolation.
  */
 
 export const TEST_DDL = `

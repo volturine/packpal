@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Database } from 'bun:sqlite';
+import { DatabaseSync as Database } from 'node:sqlite';
 
 // Set up in-memory test DB mock
 const helpers = vi.hoisted(() => {
@@ -7,17 +7,16 @@ const helpers = vi.hoisted(() => {
 });
 
 vi.mock('$lib/server/db', async () => {
-	const { Database } = await import('bun:sqlite');
+	const { DatabaseSync: Database } = await import('node:sqlite');
 	const { TEST_DDL } = await import('$lib/server/test-db-helpers');
-	const { drizzle } = await import('drizzle-orm/bun-sqlite');
-	const schema = await import('$lib/server/schema');
+	const { drizzle } = await import('drizzle-orm/node-sqlite');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
 	sqlite.exec(TEST_DDL);
 	helpers.sqliteRef = sqlite;
 
-	return { db: drizzle(sqlite, { schema }) };
+	return { db: drizzle({ client: sqlite }) };
 });
 
 import { POST as registerPOST } from './register/+server';
