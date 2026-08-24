@@ -5,28 +5,28 @@ default: dev
 
 # Install all dependencies
 install:
-    bun install
+    npm install
 
 # Run development server
 dev:
-    bun run dev
+    npm run dev
 
 # Format code
 format:
-    bun run format
+    npm run format
 
 # Run all linters and type checks
 check:
-    bun run lint
-    bun run check
+    npm run lint
+    npm run check
 
 # Run Playwright E2E tests (isolated test DB on port 5199)
 test:
-    DATABASE_PATH=data/packpal-test.db bun run test
+    DATABASE_PATH=data/packpal-test.db npm run test
 
 # Run Playwright tests with UI
 test-ui:
-    DATABASE_PATH=data/packpal-test.db bun run test:ui
+    DATABASE_PATH=data/packpal-test.db npm run test:ui
 
 # Remove test database files
 test-clean:
@@ -37,12 +37,12 @@ verify: format check
 
 # Build for production
 build:
-    bun run build
+    npm run build
 
 # Preview production build locally
 preview: build
-    bun run preview
+    npm run preview
 
 # Docker build and run
 docker:
-    docker compose up --build
+    docker compose --project-directory . -f docker/compose.yaml up -d --build
