@@ -73,16 +73,16 @@ Deployment (including Tailscale) is documented in the root
 
 ## Project map
 
-| Path                                | Role                                       |
-| ----------------------------------- | ------------------------------------------ |
-| `src/lib/components/`               | UI components                              |
-| `src/lib/types.ts`                  | Shared TypeScript interfaces               |
-| `src/lib/data/packing-templates.ts` | Packing template data                      |
-| `src/lib/server/`                   | Auth (scrypt), db, schema, rate limiting,  |
-|                                     | trip access, trip enrichment               |
-| `src/routes/api/`                   | auth, trips, packing-items,                |
-|                                     | packing-presets, chat-messages, chat (AI)  |
-| `docker/`                           | Docker Compose templates and image         |
+| Path                                | Role                                      |
+| ----------------------------------- | ----------------------------------------- |
+| `src/lib/components/`               | UI components                             |
+| `src/lib/types.ts`                  | Shared TypeScript interfaces              |
+| `src/lib/data/packing-templates.ts` | Packing template data                     |
+| `src/lib/server/`                   | Auth (scrypt), db, schema, rate limiting, |
+|                                     | trip access, trip enrichment              |
+| `src/routes/api/`                   | auth, trips, packing-items,               |
+|                                     | packing-presets, chat-messages, chat (AI) |
+| `docker/`                           | Docker Compose templates and image        |
 
 ## Coding guidelines
 
