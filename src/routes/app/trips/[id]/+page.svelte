@@ -34,7 +34,15 @@
 	let presets = $state<PackingPreset[]>([]);
 	let collaborators = $state<TripCollaborator[]>([]);
 	let loadError = $state(false);
-	let loading = $state(true);
+	let loading = $state(false);
+	function initializeData() {
+		trip = data.trip;
+		items = data.items;
+		presets = data.presets;
+		collaborators = data.collaborators;
+		loadError = data.loadError;
+	}
+	initializeData();
 	let searchQuery = $state('');
 	let filterCategory = $state('all');
 	let filterStatus = $state<'all' | 'packed' | 'unpacked' | 'critical'>('all');
@@ -410,10 +418,6 @@
 		if (!res.ok) return;
 		presets = presets.filter((p) => p.id !== presetId);
 	}
-
-	$effect(() => {
-		loadData();
-	});
 </script>
 
 <div class="min-h-screen bg-surface font-sans text-slate-900">
@@ -729,11 +733,13 @@
 	<Toast {toast} />
 
 	{#if trip}
-		<TripEditModal
-			open={editingTrip}
-			{trip}
-			onclose={() => (editingTrip = false)}
-			onsave={saveTripDetails}
-		/>
+		{#key editingTrip}
+			<TripEditModal
+				open={editingTrip}
+				{trip}
+				onclose={() => (editingTrip = false)}
+				onsave={saveTripDetails}
+			/>
+		{/key}
 	{/if}
 </div>

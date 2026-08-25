@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { AuthUser } from '$lib/types';
+	import { onMount } from 'svelte';
 	import { setContext } from 'svelte';
 
 	const { children } = $props();
@@ -82,7 +83,7 @@
 		}
 	}
 
-	$effect(() => {
+	onMount(() => {
 		checkAuth();
 	});
 </script>

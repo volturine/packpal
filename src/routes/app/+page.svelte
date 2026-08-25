@@ -4,24 +4,17 @@
 	import { formatDate, reminderClasses } from '$lib/format';
 	import type { Trip } from '$lib/types';
 
+	const { data } = $props();
 	let trips = $state<Trip[]>([]);
-	let loading = $state(true);
+	let loading = $state(false);
+	function initializeData() {
+		trips = data.trips;
+	}
+	initializeData();
 	let searchQuery = $state('');
 	let statusFilter = $state<'all' | 'upcoming' | 'active' | 'completed'>('all');
 	let tripScope = $state<'active' | 'archived'>('active');
 	let sortBy = $state<'departure' | 'progress' | 'recent'>('departure');
-
-	async function loadTrips() {
-		loading = true;
-		try {
-			const res = await fetch('/api/trips');
-			if (res.ok) {
-				trips = await res.json();
-			}
-		} finally {
-			loading = false;
-		}
-	}
 
 	function tripProgress(trip: Trip) {
 		const itemCount = trip.itemCount ?? 0;
@@ -105,10 +98,6 @@
 				: currentTrip
 		);
 	}
-
-	$effect(() => {
-		loadTrips();
-	});
 </script>
 
 <div class="min-h-screen bg-surface font-sans text-slate-900">

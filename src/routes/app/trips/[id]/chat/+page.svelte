@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import type { ChatMessage, PackingItem, PackingItemPriority, Trip } from '$lib/types';
+	import { onMount } from 'svelte';
 
 	const { data } = $props();
 	const tripId = $derived(data.tripId);
@@ -11,7 +12,15 @@
 	let hasMoreMessages = $state(false);
 	let loadingOlder = $state(false);
 	let loadError = $state(false);
-	let loading = $state(true);
+	let loading = $state(false);
+	function initializeData() {
+		trip = data.trip;
+		items = data.items;
+		messages = data.messages;
+		hasMoreMessages = data.hasMoreMessages;
+		loadError = data.loadError;
+	}
+	initializeData();
 	let inputText = $state('');
 	let streaming = $state(false);
 	let streamedContent = $state('');
@@ -67,31 +76,6 @@
 		});
 	}
 
-	async function loadData() {
-		loading = true;
-		loadError = false;
-		try {
-			const [tripRes, itemsRes, messagesRes] = await Promise.all([
-				fetch(`/api/trips/${tripId}`),
-				fetch(`/api/packing-items?tripId=${tripId}`),
-				fetch(`/api/chat-messages?tripId=${tripId}`)
-			]);
-			if (!tripRes.ok) {
-				loadError = true;
-				return;
-			}
-			trip = await tripRes.json();
-			items = await itemsRes.json();
-			const chatData = await messagesRes.json();
-			messages = chatData.messages;
-			hasMoreMessages = chatData.hasMore;
-		} catch {
-			loadError = true;
-		} finally {
-			loading = false;
-		}
-	}
-
 	async function loadOlderMessages() {
 		if (loadingOlder || !hasMoreMessages || messages.length === 0) return;
 		loadingOlder = true;
@@ -135,6 +119,7 @@
 			...messages,
 			{ id, tripId, userId: '', role: 'assistant', content, createdAt: Date.now() }
 		];
+		scrollToBottom();
 	}
 
 	async function sendMessage(text?: string) {
@@ -157,6 +142,7 @@
 				...messages,
 				{ id, tripId, userId: '', role: 'user', content, createdAt: Date.now() }
 			];
+			scrollToBottom();
 		}
 
 		const chatHistory = messages.map((message) => ({
@@ -282,11 +268,7 @@
 		actionFeedback = `Added ${suggestion.name} to your trip.`;
 	}
 
-	$effect(() => {
-		loadData();
-	});
-
-	$effect(() => {
+	onMount(() => {
 		if (displayMessages.length > 0) scrollToBottom();
 	});
 </script>

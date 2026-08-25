@@ -8,6 +8,7 @@
 	} from '$lib/data/packing-templates';
 	import type { Trip } from '$lib/types';
 	import { toDateInputValue } from '$lib/format';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		open: boolean;
@@ -99,7 +100,7 @@
 		}
 	}
 
-	$effect(() => {
+	onMount(() => {
 		if (open) syncForm();
 	});
 </script>

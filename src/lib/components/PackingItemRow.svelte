@@ -61,17 +61,6 @@
 			priority: editPriority
 		});
 	}
-
-	$effect(() => {
-		if (editing) {
-			editName = item.name;
-			editCategory = item.category;
-			editQuantity = item.quantity;
-			editNotes = item.notes ?? '';
-			editPriority = item.priority;
-			editError = '';
-		}
-	});
 </script>
 
 <li class="group flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0">

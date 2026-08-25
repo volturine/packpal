@@ -5,6 +5,7 @@
 	import { getInitialTripItems } from '$lib/trip-items';
 	import type { PackingPreset } from '$lib/types';
 
+	const { data } = $props();
 	let name = $state('');
 	let destination = $state('');
 	let country = $state('');
@@ -19,6 +20,10 @@
 	let step = $state(1);
 	let submitting = $state(false);
 	let error = $state('');
+	function initializeData() {
+		presets = data.presets;
+	}
+	initializeData();
 
 	const CLIMATES: { id: Climate; label: string; icon: string; description: string }[] = [
 		{
@@ -86,11 +91,6 @@
 		return entries.sort((a, b) => b[1] - a[1]);
 	});
 
-	async function loadPresets() {
-		const res = await fetch('/api/packing-presets');
-		if (res.ok) presets = await res.json();
-	}
-
 	async function handleSubmit() {
 		if (submitting) return;
 		submitting = true;
@@ -149,10 +149,6 @@
 			submitting = false;
 		}
 	}
-
-	$effect(() => {
-		loadPresets();
-	});
 </script>
 
 <div class="min-h-screen bg-surface font-sans text-slate-900">
