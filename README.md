@@ -1,10 +1,15 @@
 # PackPal
 
-Smart packing helper for trips. SvelteKit (Svelte 5) + SQLite (node:sqlite + drizzle-orm), local auth, TailwindCSS v4.
+Smart packing helper for trips.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+> **Work in progress.** This project is under heavy construction — everything
+> (features, APIs, data model) is subject to change without notice.
+
+SvelteKit (Svelte 5) · SQLite (node:sqlite + drizzle-orm) · TailwindCSS v4
 
 ## Development
+
+Requires Node.js 24.
 
 ```sh
 npm install
@@ -13,72 +18,25 @@ npm run dev
 
 Copy `.env.example` to `.env` and fill in what you need (`OPENROUTER_API_KEY` is optional).
 
-Useful commands:
+Before pushing:
 
 ```sh
-npm run lint        # prettier + eslint
-npm run format
-npm run check       # svelte-check
-npm run test:unit   # vitest
-npm run test        # playwright e2e
+npm run validate   # lint + typecheck + unit tests + build
 ```
 
-## Docker deployment
+See [AGENTS.md](AGENTS.md) for conventions.
 
-Dev/local stack (builds from source):
+## Docker
 
 ```sh
 docker compose --project-directory . -f docker/compose.yaml up -d --build
 ```
 
-Production stack (pinned image from `PACKPAL_IMAGE`):
-
-```sh
-docker compose --project-directory . \
-  -f docker/compose.production.yaml --env-file .env up -d
-```
-
-## Tailscale
-
-Both stacks can join your tailnet via the `docker/compose.tailscale.yaml` overlay.
-Prerequisites in the Tailscale admin console: MagicDNS + HTTPS Certificates enabled.
-Do not enable Funnel — Serve is tailnet-only.
-
-1. Create a `.env` (see `.env.example`) with `TS_AUTHKEY`, `TS_HOSTNAME`, and set
-   `PACKPAL_ORIGIN`/`ORIGIN` to `https://<TS_HOSTNAME>.<tailnet>.ts.net`
-   (required for CSRF protection).
-2. Start the stack:
-
-```sh
-docker compose --project-directory . \
-  -f docker/compose.yaml -f docker/compose.tailscale.yaml \
-  --env-file .env up -d
-```
-
-The app is served over HTTPS at `https://<TS_HOSTNAME>.<tailnet>.ts.net`.
-
-SQLite data lives in the `packpal-data` volume; Tailscale state in `tailscale-state`.
-
-## CI/CD
-
-`.github/workflows/ci-cd.yaml` runs on every PR and push to `master`:
-
-- **validate** — lint, typecheck, unit tests, production build
-- **image** — builds `docker/Dockerfile` and pushes to GHCR (`ghcr.io/<owner>/packpal`):
-  - PRs from the same repo push immutable `dev-pr-<n>` / `dev-sha-*` tags (forks build only)
-  - pushes to `master` publish `latest`, `master`, and `sha-*` tags (amd64 + arm64)
-  - `v*` tags additionally get semver tags (`1.2.3`, `1.2`) for use as `PACKPAL_IMAGE`
-
-Dependabot keeps GitHub Actions, the Docker base image, and npm dependencies up to date weekly.
+Production image and Tailscale setups live in `docker/`.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
-validation, and pull request guidelines.
-
-- **Security** — private report via [SECURITY.md](SECURITY.md) (do not open a
-  public issue)
-- **Conduct** — [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues: [SECURITY.md](SECURITY.md).
 
 ## License
 
