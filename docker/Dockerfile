@@ -5,15 +5,13 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json svelte.config.js tsconfig.json vite.config.ts ./
-RUN apk add --no-cache python3 make g++
 RUN npm ci --ignore-scripts
 
 COPY . .
 
 RUN npm run prepare \
-	&& npm rebuild better-sqlite3 \
 	&& npm run build \
-		&& npm prune --omit=dev
+	&& npm prune --omit=dev --ignore-scripts
 
 FROM node:24-alpine AS runtime
 

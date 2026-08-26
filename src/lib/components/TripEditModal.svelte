@@ -123,24 +123,28 @@
 	{/if}
 	<div class="grid gap-4 sm:grid-cols-2">
 		<input
+			id="trip-name"
 			type="text"
 			bind:value={name}
 			placeholder="Trip name"
 			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
 		/>
 		<input
+			id="trip-destination"
 			type="text"
 			bind:value={destination}
 			placeholder="Destination"
 			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
 		/>
 		<input
+			id="trip-country"
 			type="text"
 			bind:value={country}
 			placeholder="Country"
 			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
 		/>
 		<input
+			id="trip-travelers"
 			type="number"
 			min="1"
 			bind:value={travelers}
@@ -158,6 +162,7 @@
 			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
 		/>
 		<select
+			id="trip-climate"
 			bind:value={climate}
 			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500"
 		>
@@ -195,6 +200,7 @@
 		{/each}
 	</div>
 	<textarea
+		id="trip-notes"
 		rows={3}
 		bind:value={notes}
 		class="mt-5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
