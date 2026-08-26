@@ -2,7 +2,7 @@
 
 Smart packing helper for trips: packing lists with templates, collaborators, and AI-assisted suggestions, backed by SQLite.
 
-**Stack:** Node.js 24 + SvelteKit 5 + TypeScript · Tailwind CSS 4 · node:sqlite · drizzle-orm · npm
+**Stack:** Node.js 24 + SvelteKit 5 + TypeScript · Tailwind CSS 4 · better-sqlite3 · drizzle-orm · npm
 
 ## Commands
 
@@ -28,7 +28,7 @@ npm run validate            # lint + check + unit tests + production build
 Code/config: `npm run validate` && `npm run test` before done or review. Markdown-only: skip unless asked.
 
 - Fix failures and warnings immediately (pre-existing ones when you touch the area). Unfixable third-party stub warnings: inline comment why.
-- Add backend tests for new/changed backend behavior. Route tests mock `$lib/server/db` with an in-memory `node:sqlite` database (`src/lib/server/test-db-helpers.ts` has shared DDL and seed helpers).
+- Add backend tests for new/changed backend behavior. Route tests mock `$lib/server/db` with an in-memory `better-sqlite3` database (`src/lib/server/test-db-helpers.ts` has shared DDL and seed helpers).
 
 ## PackPal security
 

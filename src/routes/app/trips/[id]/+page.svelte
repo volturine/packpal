@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { CATEGORIES } from '$lib/data/packing-templates';
 	import type { Climate } from '$lib/data/packing-templates';
@@ -342,7 +343,7 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id: tripId })
 		});
-		await goto('/app');
+		await goto(resolve('/app'));
 	}
 
 	async function addCollaborator(username: string): Promise<string | null> {
@@ -424,7 +425,7 @@
 	<AppHeader backHref="/app" backLabel="Back to trips">
 		{#snippet actions()}
 			<a
-				href="/app/trips/{tripId}/chat"
+				href={resolve(`/app/trips/${tripId}/chat`)}
 				class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
 			>
 				AI Assistant
@@ -445,7 +446,7 @@
 					This trip doesn't exist or you don't have access to it.
 				</p>
 				<a
-					href="/app"
+					href={resolve('/app')}
 					class="mt-4 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
 				>
 					Back to dashboard

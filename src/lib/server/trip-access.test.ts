@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DatabaseSync as Database } from 'node:sqlite';
+import Database from 'better-sqlite3';
 
 // Set up in-memory test DB mock
 const helpers = vi.hoisted(() => {
@@ -7,9 +7,9 @@ const helpers = vi.hoisted(() => {
 });
 
 vi.mock('$lib/server/db', async () => {
-	const { DatabaseSync: Database } = await import('node:sqlite');
+	const Database = (await import('better-sqlite3')).default;
 	const { TEST_DDL } = await import('./test-db-helpers');
-	const { drizzle } = await import('drizzle-orm/node-sqlite');
+	const { drizzle } = await import('drizzle-orm/better-sqlite3');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { AuthUser } from '$lib/types';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { setContext } from 'svelte';
 
@@ -102,7 +103,10 @@
 	<div class="flex min-h-screen items-center justify-center bg-surface">
 		<div class="w-full max-w-md px-6">
 			<div class="mb-8 text-center">
-				<a href="/" class="inline-flex items-center gap-2 text-2xl font-bold text-slate-900">
+				<a
+					href={resolve('/')}
+					class="inline-flex items-center gap-2 text-2xl font-bold text-slate-900"
+				>
 					<span
 						class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-sm text-white"
 						>P</span

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { resolve } from '$app/paths';
 	import { formatActivityNames } from '$lib/packing-insights';
 	import { formatDate, reminderClasses } from '$lib/format';
 	import type { Trip } from '$lib/types';
@@ -104,7 +105,7 @@
 	<AppHeader>
 		{#snippet actions()}
 			<a
-				href="/app/trips/new"
+				href={resolve('/app/trips/new')}
 				class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-700"
 			>
 				+ New Trip
@@ -129,7 +130,7 @@
 				<h2 class="text-xl font-semibold text-slate-900">No trips yet</h2>
 				<p class="mt-2 text-slate-500">Create your first trip and we'll help you pack perfectly.</p>
 				<a
-					href="/app/trips/new"
+					href={resolve('/app/trips/new')}
 					class="mt-6 inline-block rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700"
 				>
 					Create Your First Trip
@@ -276,7 +277,7 @@
 								</div>
 							</div>
 
-							<a href="/app/trips/{trip.id}" class="block">
+							<a href={resolve(`/app/trips/${trip.id}`)} class="block">
 								<h3 class="truncate text-base font-semibold text-slate-900">{trip.name}</h3>
 								<p class="mt-1 text-sm text-slate-500">
 									{trip.destination}{trip.country ? `, ${trip.country}` : ''}
@@ -345,12 +346,12 @@
 
 							<div class="mt-4 flex flex-wrap gap-2">
 								<a
-									href="/app/trips/{trip.id}"
+									href={resolve(`/app/trips/${trip.id}`)}
 									class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
 									>Open Trip</a
 								>
 								<a
-									href="/app/trips/{trip.id}/chat"
+									href={resolve(`/app/trips/${trip.id}/chat`)}
 									class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
 									>Open Chat</a
 								>

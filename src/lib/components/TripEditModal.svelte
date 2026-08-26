@@ -10,6 +10,11 @@
 	import { toDateInputValue } from '$lib/format';
 	import { onMount } from 'svelte';
 
+	function iconText(icon: string) {
+		const codePoint = icon.match(/^&#x([0-9A-F]+);$/i)?.[1];
+		return codePoint ? String.fromCodePoint(parseInt(codePoint, 16)) : icon;
+	}
+
 	interface Props {
 		open: boolean;
 		trip: Trip;
@@ -178,7 +183,7 @@
 								? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/20'
 								: 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}"
 						>
-							<span class="mt-0.5 text-xl">{@html activity.icon}</span>
+							<span class="mt-0.5 text-xl">{iconText(activity.icon)}</span>
 							<div class="min-w-0 flex-1">
 								<div class="text-sm font-medium text-slate-900">{activity.name}</div>
 								<div class="text-xs text-slate-500">{activity.description}</div>

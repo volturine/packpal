@@ -1,11 +1,17 @@
 <script lang="ts">
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { ACTIVITIES, ACTIVITY_GROUPS, type Climate } from '$lib/data/packing-templates';
 	import { getInitialTripItems } from '$lib/trip-items';
 	import type { PackingPreset } from '$lib/types';
 
 	const { data } = $props();
+
+	function iconText(icon: string) {
+		const codePoint = icon.match(/^&#x([0-9A-F]+);$/i)?.[1];
+		return codePoint ? String.fromCodePoint(parseInt(codePoint, 16)) : icon;
+	}
 	let name = $state('');
 	let destination = $state('');
 	let country = $state('');
@@ -142,7 +148,7 @@
 				});
 			}
 
-			await goto(`/app/trips/${tripId}`);
+			await goto(resolve(`/app/trips/${tripId}`));
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Something went wrong';
 		} finally {
@@ -297,7 +303,7 @@
 										? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/20'
 										: 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}"
 								>
-									<span class="mt-0.5 text-xl">{@html activity.icon}</span>
+									<span class="mt-0.5 text-xl">{iconText(activity.icon)}</span>
 									<div class="min-w-0 flex-1">
 										<div class="text-sm font-medium text-slate-900">{activity.name}</div>
 										<div class="text-xs text-slate-500">{activity.description}</div>

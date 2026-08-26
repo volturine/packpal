@@ -5,7 +5,7 @@ Smart packing helper for trips.
 > **Work in progress.** This project is under heavy construction — everything
 > (features, APIs, data model) is subject to change without notice.
 
-SvelteKit (Svelte 5) · SQLite (node:sqlite + drizzle-orm) · TailwindCSS v4
+SvelteKit (Svelte 5) · SQLite (better-sqlite3 + drizzle-orm) · TailwindCSS v4
 
 ## Development
 

@@ -10,6 +10,7 @@
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.3.3",
+		"@types/better-sqlite3": "^9.6.0",
 		"@types/node": "^24",
 		"drizzle-kit": "^0.31.10",
 		"eslint": "^9.39.2",
@@ -29,6 +30,7 @@
 		"vitest": "^4.1.2"
 	},
 	"dependencies": {
+		"better-sqlite3": "^13.0.3",
 		"drizzle-orm": "^1.0.0-rc.5-169397b"
 	},
 	"engines": {
