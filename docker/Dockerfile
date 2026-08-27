@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-trixie-slim AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
 
@@ -8,10 +8,12 @@ COPY package.json package-lock.json svelte.config.js tsconfig.json vite.config.t
 RUN npm ci --ignore-scripts
 
 COPY . .
-RUN npm run build \
-	&& npm prune --omit=dev
 
-FROM node:24-trixie-slim AS runtime
+RUN npm run prepare \
+	&& npm run build \
+	&& npm prune --omit=dev --ignore-scripts
+
+FROM node:24-alpine AS runtime
 
 ENV NODE_ENV=production \
 	HOST=0.0.0.0 \

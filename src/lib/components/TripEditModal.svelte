@@ -8,6 +8,12 @@
 	} from '$lib/data/packing-templates';
 	import type { Trip } from '$lib/types';
 	import { toDateInputValue } from '$lib/format';
+	import { onMount } from 'svelte';
+
+	function iconText(icon: string) {
+		const codePoint = icon.match(/^&#x([0-9A-F]+);$/i)?.[1];
+		return codePoint ? String.fromCodePoint(parseInt(codePoint, 16)) : icon;
+	}
 
 	interface Props {
 		open: boolean;
@@ -99,7 +105,7 @@
 		}
 	}
 
-	$effect(() => {
+	onMount(() => {
 		if (open) syncForm();
 	});
 </script>
@@ -117,24 +123,28 @@
 	{/if}
 	<div class="grid gap-4 sm:grid-cols-2">
 		<input
+			id="trip-name"
 			type="text"
 			bind:value={name}
 			placeholder="Trip name"
 			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
 		/>
 		<input
+			id="trip-destination"
 			type="text"
 			bind:value={destination}
 			placeholder="Destination"
 			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
 		/>
 		<input
+			id="trip-country"
 			type="text"
 			bind:value={country}
 			placeholder="Country"
 			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
 		/>
 		<input
+			id="trip-travelers"
 			type="number"
 			min="1"
 			bind:value={travelers}
@@ -152,6 +162,7 @@
 			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
 		/>
 		<select
+			id="trip-climate"
 			bind:value={climate}
 			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500"
 		>
@@ -177,7 +188,7 @@
 								? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/20'
 								: 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}"
 						>
-							<span class="mt-0.5 text-xl">{@html activity.icon}</span>
+							<span class="mt-0.5 text-xl">{iconText(activity.icon)}</span>
 							<div class="min-w-0 flex-1">
 								<div class="text-sm font-medium text-slate-900">{activity.name}</div>
 								<div class="text-xs text-slate-500">{activity.description}</div>
@@ -189,6 +200,7 @@
 		{/each}
 	</div>
 	<textarea
+		id="trip-notes"
 		rows={3}
 		bind:value={notes}
 		class="mt-5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"

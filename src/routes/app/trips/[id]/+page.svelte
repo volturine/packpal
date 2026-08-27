@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { CATEGORIES } from '$lib/data/packing-templates';
 	import type { Climate } from '$lib/data/packing-templates';
@@ -34,7 +35,15 @@
 	let presets = $state<PackingPreset[]>([]);
 	let collaborators = $state<TripCollaborator[]>([]);
 	let loadError = $state(false);
-	let loading = $state(true);
+	let loading = $state(false);
+	function initializeData() {
+		trip = data.trip;
+		items = data.items;
+		presets = data.presets;
+		collaborators = data.collaborators;
+		loadError = data.loadError;
+	}
+	initializeData();
 	let searchQuery = $state('');
 	let filterCategory = $state('all');
 	let filterStatus = $state<'all' | 'packed' | 'unpacked' | 'critical'>('all');
@@ -334,7 +343,7 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id: tripId })
 		});
-		await goto('/app');
+		await goto(resolve('/app'));
 	}
 
 	async function addCollaborator(username: string): Promise<string | null> {
@@ -410,17 +419,13 @@
 		if (!res.ok) return;
 		presets = presets.filter((p) => p.id !== presetId);
 	}
-
-	$effect(() => {
-		loadData();
-	});
 </script>
 
 <div class="min-h-screen bg-surface font-sans text-slate-900">
 	<AppHeader backHref="/app" backLabel="Back to trips">
 		{#snippet actions()}
 			<a
-				href="/app/trips/{tripId}/chat"
+				href={resolve(`/app/trips/${tripId}/chat`)}
 				class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
 			>
 				AI Assistant
@@ -441,7 +446,7 @@
 					This trip doesn't exist or you don't have access to it.
 				</p>
 				<a
-					href="/app"
+					href={resolve('/app')}
 					class="mt-4 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
 				>
 					Back to dashboard
@@ -729,11 +734,13 @@
 	<Toast {toast} />
 
 	{#if trip}
-		<TripEditModal
-			open={editingTrip}
-			{trip}
-			onclose={() => (editingTrip = false)}
-			onsave={saveTripDetails}
-		/>
+		{#key editingTrip}
+			<TripEditModal
+				open={editingTrip}
+				{trip}
+				onclose={() => (editingTrip = false)}
+				onsave={saveTripDetails}
+			/>
+		{/key}
 	{/if}
 </div>

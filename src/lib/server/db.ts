@@ -1,5 +1,5 @@
-import { DatabaseSync } from 'node:sqlite';
-import { drizzle } from 'drizzle-orm/node-sqlite';
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
 import path from 'node:path';
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'packpal.db');
@@ -8,7 +8,7 @@ const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'p
 import { mkdirSync } from 'node:fs';
 mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
-const sqlite = new DatabaseSync(DB_PATH);
+const sqlite = new Database(DB_PATH);
 sqlite.exec('PRAGMA journal_mode = WAL');
 sqlite.exec('PRAGMA foreign_keys = ON');
 
