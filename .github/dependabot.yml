@@ -7,7 +7,7 @@ updates:
     groups:
       github-actions:
         patterns:
-          - "*"
+          - '*'
 
   - package-ecosystem: docker
     directory: /docker
@@ -16,7 +16,7 @@ updates:
     groups:
       docker:
         patterns:
-          - "*"
+          - '*'
 
   - package-ecosystem: npm
     directory: /
@@ -25,4 +25,4 @@ updates:
     groups:
       npm:
         patterns:
-          - "*"
+          - '*'
