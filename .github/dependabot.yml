@@ -26,3 +26,9 @@ updates:
       npm:
         patterns:
           - '*'
+    ignore:
+      # svelte-check and typescript-eslint still require the TypeScript 6 JS compiler API.
+      # TypeScript 7.0 dropped that API; 7.1 is expected to restore it.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
