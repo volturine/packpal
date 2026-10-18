@@ -119,7 +119,8 @@ jobs:
 
       - name: Verify development deployment
         run: >-
-          curl --fail-with-body --retry 12 --retry-delay 5 --retry-all-errors
+          curl --fail-with-body --retry 60 --retry-delay 5 --retry-max-time 300
+          --retry-all-errors --connect-timeout 10 --max-time 20
           https://dev.packpal.kripso-world.com/health/ready
 
   deploy-cloudflare-production:
@@ -160,7 +161,8 @@ jobs:
 
       - name: Verify production deployment
         run: >-
-          curl --fail-with-body --retry 12 --retry-delay 5 --retry-all-errors
+          curl --fail-with-body --retry 60 --retry-delay 5 --retry-max-time 300
+          --retry-all-errors --connect-timeout 10 --max-time 20
           https://packpal.kripso-world.com/health/ready
 
   image:

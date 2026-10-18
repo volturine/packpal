@@ -12,13 +12,16 @@ import os
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
+from graphlib import CycleError, TopologicalSorter
 
 
 DATABASE = "PACKPAL_DB"
 DEV_ENV = "dev"
 LIST_OBJECTS = (
-    "SELECT type, name FROM sqlite_master WHERE type IN ('table', 'view') "
-    "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'"
+    'SELECT m.type, m.name, fk."table" AS parent FROM sqlite_master AS m '
+    "LEFT JOIN pragma_foreign_key_list(m.name) AS fk "
+    "WHERE m.type IN ('table', 'view') "
+    "AND m.name NOT LIKE 'sqlite_%' AND m.name NOT LIKE '_cf_%'"
 )
 
 
@@ -40,18 +43,46 @@ def parse_d1_rows(payload: object) -> list[dict[str, object]]:
 
 def drop_sql(objects: Sequence[Mapping[str, object]]) -> str | None:
     views: list[str] = []
-    tables: list[str] = []
+    view_names: set[str] = set()
+    table_names: list[str] = []
+    parents_by_child: dict[str, set[str]] = {}
     for obj in objects:
         name = obj.get("name")
         kind = obj.get("type")
         if not isinstance(name, str) or not name:
             raise ValueError("D1 sqlite_master row is missing a name")
-        ident = quote_ident(name)
         if kind == "view":
-            views.append(f"DROP VIEW IF EXISTS {ident}")
+            if name not in view_names:
+                views.append(name)
+                view_names.add(name)
         elif kind == "table":
-            tables.append(f"DROP TABLE IF EXISTS {ident}")
-    statements = views + tables
+            if name not in parents_by_child:
+                table_names.append(name)
+                parents_by_child[name] = set()
+            parent = obj.get("parent")
+            if isinstance(parent, str) and parent != name:
+                parents_by_child[name].add(parent)
+
+    table_names_set = set(table_names)
+    # TopologicalSorter maps each table to its predecessors, so parents are
+    # emitted before children. Only include parent tables that this reset will
+    # drop; protected/internal tables are left untouched.
+    graph = {
+        table: parents & table_names_set
+        for table, parents in parents_by_child.items()
+    }
+    try:
+        parents_first = tuple(TopologicalSorter(graph).static_order())
+    except CycleError as error:
+        cycle = error.args[1] if len(error.args) > 1 else ()
+        cycle_names = ", ".join(str(name) for name in cycle)
+        suffix = f": {cycle_names}" if cycle_names else ""
+        raise ValueError(f"D1 tables have cyclic foreign-key dependencies{suffix}") from error
+
+    # Drop children before parents. Views are dropped first because they can
+    # depend on any of the tables being removed.
+    statements = [f"DROP VIEW IF EXISTS {quote_ident(name)}" for name in views]
+    statements.extend(f"DROP TABLE IF EXISTS {quote_ident(name)}" for name in reversed(parents_first))
     if not statements:
         return None
     return "; ".join(["PRAGMA defer_foreign_keys = ON", *statements])
