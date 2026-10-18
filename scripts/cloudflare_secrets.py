@@ -15,6 +15,8 @@ def deployment_secrets(environ: Mapping[str, str]) -> dict[str, str]:
     if bool(stripe_key) != bool(webhook):
         raise ValueError("Configure both Stripe secrets or neither")
     if stripe_key:
+        if not webhook.startswith("whsec_") or len(webhook) == len("whsec_"):
+            raise ValueError("STRIPE_WEBHOOK_SECRET must be the destination Signing secret (whsec_...)")
         mode = environ.get("STRIPE_MODE", "test")
         if mode not in ("test", "live") or not stripe_key.startswith((f"sk_{mode}_", f"rk_{mode}_")):
             raise ValueError("Stripe key does not match this deployment's payment mode")
