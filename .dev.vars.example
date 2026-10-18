@@ -1,3 +1,9 @@
 # Secrets for `npm run cf:dev` (wrangler dev). Copy to .dev.vars; never commit it.
-# Optional: only the AI chat assistant needs it.
+# AI is disabled until OpenRouter and both Stripe secrets are configured.
 OPENROUTER_API_KEY=...
+
+# Test keys locally/development; live keys only in production.
+# Stripe webhook: /api/billing/webhook (see README for event types).
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_MODE=test

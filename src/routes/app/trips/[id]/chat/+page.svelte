@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { resolve } from '$app/paths';
+	import { createBillingRequestId, formatCredit, type BillingSummary } from '$lib/billing';
 	import type { ChatMessage, PackingItem, PackingItemPriority, Trip } from '$lib/types';
 	import { onMount } from 'svelte';
 
@@ -27,6 +28,22 @@
 	let streamedContent = $state('');
 	let chatContainer: HTMLDivElement | undefined = $state();
 	let actionFeedback = $state('');
+	let chatFeedback = $state('');
+	let billingSummary = $state<BillingSummary | null>(null);
+	let billingLoading = $state(true);
+	let billingError = $state('');
+
+	const canUseAi = $derived(
+		!billingLoading &&
+			billingSummary !== null &&
+			billingSummary.aiEnabled &&
+			billingSummary.balanceMicroUsd >= billingSummary.reservationMicroUsd
+	);
+	const insufficientCredit = $derived(
+		billingSummary !== null &&
+			billingSummary.aiEnabled &&
+			billingSummary.balanceMicroUsd < billingSummary.reservationMicroUsd
+	);
 
 	const displayMessages = $derived.by(() => {
 		const currentMessages = messages.map((message) => ({
@@ -66,6 +83,13 @@
 		'Are there contradictions in my current list?',
 		'What should I know about the destination and season?',
 		'What can I remove if I want to pack lighter?'
+	];
+	const uncertainRequestFeedback =
+		'Unable to confirm whether the AI request completed. Check your credit history before submitting another request.';
+	const knownStreamErrors = [
+		'The AI provider could not complete this response.',
+		'Usage confirmation is pending. Check your credit history before retrying.',
+		'The response was interrupted. Its credit hold will be reconciled when usage is confirmed.'
 	];
 
 	function scrollToBottom() {
@@ -123,71 +147,77 @@
 		scrollToBottom();
 	}
 
+	async function loadBillingSummary() {
+		billingLoading = true;
+		billingError = '';
+		try {
+			const response = await fetch('/api/billing');
+			if (!response.ok) throw new Error('Unable to load AI credits. Please try again.');
+			billingSummary = (await response.json()) as BillingSummary;
+		} catch {
+			billingError = 'Unable to load AI credits. Please try again.';
+		} finally {
+			billingLoading = false;
+		}
+	}
+
 	async function sendMessage(text?: string) {
 		const content = (text ?? inputText).trim();
-		if (!content || streaming || !trip) return;
+		if (!content || streaming || !trip || !canUseAi) return;
+		let aiRequestStarted = false;
 
 		inputText = '';
 		streaming = true;
 		streamedContent = '';
 		actionFeedback = '';
+		chatFeedback = '';
 
-		const saveRes = await fetch('/api/chat-messages', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ tripId, role: 'user', content })
-		});
-		if (saveRes.ok) {
+		try {
+			const saveRes = await fetch('/api/chat-messages', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tripId, role: 'user', content })
+			});
+			if (!saveRes.ok) {
+				chatFeedback = 'Your message could not be saved. Please try again.';
+				return;
+			}
+
 			const { id } = await saveRes.json();
 			messages = [
 				...messages,
 				{ id, tripId, userId: '', role: 'user', content, createdAt: Date.now() }
 			];
 			scrollToBottom();
-		}
 
-		const chatHistory = messages.map((message) => ({
-			role: message.role,
-			content: message.content
-		}));
-		const tripContext = {
-			name: trip.name,
-			destination: trip.destination,
-			country: trip.country,
-			climate: trip.climate,
-			activities: trip.activities,
-			startDate: trip.startDate,
-			endDate: trip.endDate,
-			travelers: trip.travelers,
-			ownerDisplayName: trip.ownerDisplayName,
-			contradictions: trip.contradictions,
-			packingItems: items.map((item) => ({
-				name: item.name,
-				category: item.category,
-				packed: item.packed,
-				notes: item.notes,
-				priority: item.priority
-			}))
-		};
-
-		try {
+			const chatHistory = messages.slice(-30).map((message) => ({
+				role: message.role,
+				content: message.content
+			}));
+			const requestId = createBillingRequestId();
+			aiRequestStarted = true;
 			const response = await fetch('/api/chat', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ messages: chatHistory, tripContext })
+				body: JSON.stringify({ tripId, requestId, messages: chatHistory })
 			});
 
 			if (!response.ok) {
-				const errData = await response.json();
-				streamedContent = `Error: ${errData.error ?? 'Failed to get response'}`;
-				await saveAssistantMessage(streamedContent);
-				streaming = false;
+				chatFeedback = uncertainRequestFeedback;
+				if ([400, 402, 404, 409, 413, 422, 429, 502, 503].includes(response.status)) {
+					try {
+						const errData: { error?: unknown } = await response.json();
+						if (typeof errData.error === 'string') chatFeedback = errData.error;
+					} catch {
+						// Use the generic feedback when the error response has no JSON body.
+					}
+				}
 				return;
 			}
 
 			const reader = response.body?.getReader();
 			if (!reader) {
-				streaming = false;
+				chatFeedback = uncertainRequestFeedback;
 				return;
 			}
 
@@ -208,8 +238,16 @@
 					if (payload === '[DONE]') continue;
 
 					try {
-						const parsed = JSON.parse(payload);
-						if (parsed.content) {
+						const parsed: { content?: unknown; error?: unknown } = JSON.parse(payload);
+						if (parsed.error !== undefined) {
+							chatFeedback =
+								typeof parsed.error === 'string' && knownStreamErrors.includes(parsed.error)
+									? parsed.error
+									: uncertainRequestFeedback;
+							await reader.cancel().catch(() => {});
+							return;
+						}
+						if (typeof parsed.content === 'string') {
 							streamedContent += parsed.content;
 							scrollToBottom();
 						}
@@ -220,12 +258,14 @@
 			}
 
 			if (streamedContent) await saveAssistantMessage(streamedContent);
-		} catch (err) {
-			streamedContent = `Error: ${err instanceof Error ? err.message : 'Network error'}`;
-			await saveAssistantMessage(streamedContent);
+		} catch {
+			chatFeedback = aiRequestStarted
+				? uncertainRequestFeedback
+				: 'Unable to connect to the AI assistant. Please try again.';
 		} finally {
 			streaming = false;
 			streamedContent = '';
+			await loadBillingSummary();
 		}
 	}
 
@@ -271,6 +311,7 @@
 
 	onMount(() => {
 		if (displayMessages.length > 0) scrollToBottom();
+		void loadBillingSummary();
 	});
 </script>
 
@@ -314,6 +355,11 @@
 			></div>
 		</div>
 	{:else}
+		{#if billingSummary?.mode === 'test'}
+			<p class="mx-auto mt-4 max-w-4xl px-6 text-sm text-amber-800" role="status">
+				Test mode: payments and AI responses are simulated. No real AI credit is spent.
+			</p>
+		{/if}
 		<div bind:this={chatContainer} onscroll={handleScroll} class="flex-1 overflow-y-auto">
 			<div class="mx-auto max-w-4xl px-6 py-6">
 				{#if hasMoreMessages}
@@ -329,6 +375,55 @@
 				{/if}
 
 				{#if trip}
+					<section
+						class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+						aria-labelledby="ai-credit-heading"
+					>
+						<div class="flex flex-wrap items-center justify-between gap-3">
+							<div>
+								<h2 id="ai-credit-heading" class="text-sm font-semibold text-slate-900">
+									AI credits
+								</h2>
+								<p class="mt-1 text-sm text-slate-600">
+									{#if billingLoading && !billingSummary}
+										Loading available credit…
+									{:else if billingSummary}
+										Available: {formatCredit(billingSummary.balanceMicroUsd)}
+									{:else}
+										Balance unavailable
+									{/if}
+									{#if billingSummary && billingSummary.heldMicroUsd > 0}
+										<span class="text-slate-400">·</span>
+										Pending hold: {formatCredit(billingSummary.heldMicroUsd)}
+									{/if}
+								</p>
+							</div>
+							<a
+								href="/app/billing"
+								class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+							>
+								{insufficientCredit ? 'Add credits' : 'Manage credits'}
+							</a>
+						</div>
+						{#if billingError}
+							<div class="mt-3 flex flex-wrap items-center gap-2 text-sm text-red-700" role="alert">
+								<span>{billingError}</span>
+								<button
+									type="button"
+									onclick={loadBillingSummary}
+									disabled={billingLoading}
+									class="font-semibold underline underline-offset-2 disabled:opacity-50"
+								>
+									Try again
+								</button>
+							</div>
+						{:else if billingSummary && !billingSummary.aiEnabled}
+							<p class="mt-3 text-sm text-amber-800">AI is temporarily unavailable.</p>
+						{:else if insufficientCredit}
+							<p class="mt-3 text-sm text-amber-800">Add credit to use AI.</p>
+						{/if}
+					</section>
+
 					<div class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 						<div class="grid gap-3 md:grid-cols-2">
 							<div>
@@ -358,6 +453,22 @@
 					</div>
 				{/if}
 
+				{#if chatFeedback}
+					<div
+						class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+						role="alert"
+						aria-live="assertive"
+					>
+						<span>{chatFeedback}</span>
+						<a
+							href="/app/billing"
+							class="ml-2 inline-block font-semibold underline underline-offset-2"
+						>
+							View credit history
+						</a>
+					</div>
+				{/if}
+
 				{#if displayMessages.length === 0}
 					<div class="py-12 text-center">
 						<div
@@ -374,6 +485,7 @@
 							{#each SUGGESTIONS as suggestion (suggestion)}
 								<button
 									onclick={() => sendMessage(suggestion)}
+									disabled={!canUseAi || streaming || !trip}
 									class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-brand-300 hover:bg-brand-50"
 									>{suggestion}</button
 								>
@@ -449,9 +561,10 @@
 				<div class="flex gap-2">
 					<input
 						type="text"
+						aria-label="Ask PackPal AI about your trip"
 						bind:value={inputText}
 						placeholder={streaming ? 'Thinking...' : 'Ask about your trip...'}
-						disabled={streaming || !trip}
+						disabled={streaming || !trip || !canUseAi}
 						onkeydown={(event: KeyboardEvent) => {
 							if (event.key === 'Enter' && !event.shiftKey) {
 								event.preventDefault();
@@ -462,7 +575,7 @@
 					/>
 					<button
 						onclick={() => sendMessage()}
-						disabled={!inputText.trim() || streaming || !trip}
+						disabled={!inputText.trim() || streaming || !trip || !canUseAi}
 						class="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-40"
 						>{streaming ? '...' : 'Send'}</button
 					>

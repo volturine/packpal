@@ -12,6 +12,9 @@ services:
       ORIGIN: ${PACKPAL_ORIGIN:?Set PACKPAL_ORIGIN in .env}
       DATABASE_PATH: /data/packpal.db
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_MODE: ${STRIPE_MODE:-live}
     volumes:
       - packpal-data:/data
     read_only: true

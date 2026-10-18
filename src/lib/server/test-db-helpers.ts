@@ -5,6 +5,8 @@
  */
 
 export function clearAllTables(sqlite: { exec: (sql: string) => void }) {
+	sqlite.exec('DELETE FROM ai_usage');
+	sqlite.exec('DELETE FROM billing_purchases');
 	sqlite.exec('DELETE FROM chat_messages');
 	sqlite.exec('DELETE FROM packing_items');
 	sqlite.exec('DELETE FROM trip_collaborators');

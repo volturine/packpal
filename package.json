@@ -33,7 +33,8 @@
 	},
 	"dependencies": {
 		"better-sqlite3": "^13.0.3",
-		"drizzle-orm": "^0.45.2"
+		"drizzle-orm": "^0.45.2",
+		"stripe": "^23.0.0"
 	},
 	"engines": {
 		"node": ">=24"

@@ -98,3 +98,41 @@ export const chatMessages = sqliteTable('chat_messages', {
 	content: text('content').notNull(),
 	createdAt: integer('created_at', { mode: 'number' }).notNull()
 });
+
+export const billingPurchases = sqliteTable('billing_purchases', {
+	id: text('id').primaryKey(),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	mode: text('mode', { enum: ['test', 'live'] })
+		.notNull()
+		.default('test'),
+	amountCents: integer('amount_cents').notNull(),
+	currency: text('currency').notNull().default('usd'),
+	checkoutSessionId: text('checkout_session_id').unique(),
+	paymentIntentId: text('payment_intent_id').unique(),
+	refundedCents: integer('refunded_cents').notNull().default(0),
+	disputeStatus: text('dispute_status', { enum: ['none', 'open', 'won', 'lost'] })
+		.notNull()
+		.default('none'),
+	creditedMicroUsd: integer('credited_micro_usd').notNull().default(0),
+	createdAt: integer('created_at', { mode: 'number' }).notNull()
+});
+
+export const aiUsage = sqliteTable('ai_usage', {
+	id: text('id').primaryKey(),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	mode: text('mode', { enum: ['test', 'live'] })
+		.notNull()
+		.default('test'),
+	tripId: text('trip_id').references(() => trips.id, { onDelete: 'set null' }),
+	reservedMicroUsd: integer('reserved_micro_usd').notNull(),
+	chargedMicroUsd: integer('charged_micro_usd'),
+	providerCostMicroUsd: integer('provider_cost_micro_usd'),
+	generationId: text('generation_id'),
+	promptTokens: integer('prompt_tokens'),
+	completionTokens: integer('completion_tokens'),
+	createdAt: integer('created_at', { mode: 'number' }).notNull()
+});
