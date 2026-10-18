@@ -8,15 +8,14 @@ const helpers = vi.hoisted(() => {
 
 vi.mock('$lib/server/db', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { TEST_DDL } = await import('$lib/server/test-db-helpers');
-	const { drizzle } = await import('drizzle-orm/better-sqlite3');
+	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
-	sqlite.exec(TEST_DDL);
+	applyMigrations(sqlite);
 	helpers.sqliteRef = sqlite;
 
-	return { db: drizzle({ client: sqlite }) };
+	return { getDb: () => createSqliteDb(sqlite) };
 });
 
 import { GET, POST, PATCH, DELETE } from './+server';
@@ -38,7 +37,7 @@ beforeEach(() => {
 const NOW = Date.now();
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 
-function createAuthEvent(opts: {
+async function createAuthEvent(opts: {
 	method?: string;
 	body?: Record<string, unknown>;
 	url?: string;
@@ -59,7 +58,7 @@ function createAuthEvent(opts: {
 				displayName: `User ${opts.sessionUserId}`
 			});
 		}
-		sessionId = createSession(opts.sessionUserId);
+		sessionId = await createSession(opts.sessionUserId);
 	}
 
 	const cookieStore: Record<string, string> = {};
@@ -98,13 +97,13 @@ function createAuthEvent(opts: {
 
 describe('GET /api/trips', () => {
 	it('returns 401 when not authenticated', async () => {
-		const event = createAuthEvent({ method: 'GET' });
+		const event = await createAuthEvent({ method: 'GET' });
 		const response = await GET(event);
 		expect(response.status).toBe(401);
 	});
 
 	it('returns empty array when user has no trips', async () => {
-		const event = createAuthEvent({ method: 'GET', sessionUserId: 'user-1' });
+		const event = await createAuthEvent({ method: 'GET', sessionUserId: 'user-1' });
 		const response = await GET(event);
 		const data = await response.json();
 
@@ -127,7 +126,7 @@ describe('GET /api/trips', () => {
 			endDate: NOW + 2 * WEEK
 		});
 
-		const event = createAuthEvent({ method: 'GET', sessionUserId: 'user-1' });
+		const event = await createAuthEvent({ method: 'GET', sessionUserId: 'user-1' });
 		const response = await GET(event);
 		const data = await response.json();
 
@@ -139,7 +138,7 @@ describe('GET /api/trips', () => {
 
 describe('POST /api/trips', () => {
 	it('returns 401 when not authenticated', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			body: {
 				name: 'Test Trip',
@@ -156,7 +155,7 @@ describe('POST /api/trips', () => {
 	});
 
 	it('creates a new trip', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: {
@@ -186,7 +185,7 @@ describe('POST /api/trips', () => {
 	});
 
 	it('rejects missing required fields', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: { name: 'Test' }
@@ -215,7 +214,7 @@ describe('POST /api/trips', () => {
 			endDate: NOW + 2 * WEEK
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: { action: 'addCollaborator', tripId: 'trip-1', username: 'bob' }
@@ -248,7 +247,7 @@ describe('POST /api/trips', () => {
 			endDate: NOW + 2 * WEEK
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: { action: 'addCollaborator', tripId: 'trip-1', username: 'alice' }
@@ -272,7 +271,7 @@ describe('POST /api/trips', () => {
 			endDate: NOW + 2 * WEEK
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: { action: 'addCollaborator', tripId: 'trip-1', username: 'nonexistent' }
@@ -298,7 +297,7 @@ describe('PATCH /api/trips', () => {
 			endDate: NOW + 2 * WEEK
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: { id: 'trip-1', action: 'archive' }
@@ -331,7 +330,7 @@ describe('PATCH /api/trips', () => {
 			archivedAt: NOW
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: { id: 'trip-1', action: 'unarchive' }
@@ -360,7 +359,7 @@ describe('PATCH /api/trips', () => {
 			endDate: NOW + 2 * WEEK
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: { id: 'trip-1', name: 'Updated Trip Name', travelers: 3 }
@@ -376,7 +375,7 @@ describe('PATCH /api/trips', () => {
 	});
 
 	it('returns 404 for non-existent trip', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: { id: 'nonexistent', name: 'Test' }
@@ -409,7 +408,7 @@ describe('DELETE /api/trips', () => {
 			category: 'Documents & Money'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'DELETE',
 			sessionUserId: 'user-1',
 			body: { id: 'trip-1' }
@@ -451,7 +450,7 @@ describe('DELETE /api/trips', () => {
 			endDate: NOW + 2 * WEEK
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'DELETE',
 			sessionUserId: 'user-2',
 			body: { id: 'trip-1' }
@@ -486,7 +485,7 @@ describe('DELETE /api/trips', () => {
 			invitedByUserId: 'user-1'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'DELETE',
 			sessionUserId: 'user-1',
 			body: { id: 'trip-1', collaboratorUserId: 'user-2' }

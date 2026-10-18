@@ -6,13 +6,13 @@ import { enrichTrip } from '$lib/server/trip-enrichment';
 
 // GET /api/trips/:id - get a single trip
 export const GET: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const { id } = event.params;
-	const trip = getAccessibleTripById(session.userId, id);
+	const trip = await getAccessibleTripById(session.userId, id);
 
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-	return json(enrichTrip(trip, session.userId));
+	return json(await enrichTrip(trip, session.userId));
 };

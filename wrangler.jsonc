@@ -1,0 +1,51 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "packpal",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	// Node.js compatibility (node:crypto for scrypt, Buffer) is on by default from 2026-08-04.
+	"compatibility_date": "2026-10-01",
+	// Production is reachable only through its custom domain; no *.workers.dev URL.
+	"workers_dev": false,
+	// Version preview URLs would bind the production D1 database. Keep them off.
+	"preview_urls": false,
+	"observability": {
+		"enabled": true
+	},
+	"routes": [
+		{
+			"pattern": "packpal.kripso-world.com",
+			"custom_domain": true
+		}
+	],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"d1_databases": [
+		{
+			"binding": "PACKPAL_DB",
+			"database_name": "packpal",
+			"database_id": "e3144492-d46f-401b-8175-487eca7631c0",
+			"migrations_dir": "cf/migrations"
+		}
+	],
+	// Secrets (per environment): OPENROUTER_API_KEY — see .dev.vars.example.
+	"env": {
+		"dev": {
+			"routes": [
+				{
+					"pattern": "dev.packpal.kripso-world.com",
+					"custom_domain": true
+				}
+			],
+			"d1_databases": [
+				{
+					"binding": "PACKPAL_DB",
+					"database_name": "packpal-dev",
+					"database_id": "3689f38b-220d-40f3-bf60-5ce4a8684e57",
+					"migrations_dir": "cf/migrations"
+				}
+			]
+		}
+	}
+}

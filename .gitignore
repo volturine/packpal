@@ -17,8 +17,10 @@ Thumbs.db
 # Env
 .env
 .env.*
+.dev.vars*
 !.env.example
 !.env.test
+!.dev.vars.example
 
 # Vite
 vite.config.js.timestamp-*
@@ -28,3 +30,7 @@ vite.config.ts.timestamp-*
 /data/
 /playwright-report/
 /test-results/
+
+# Python
+__pycache__/
+*.py[cod]

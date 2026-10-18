@@ -2,6 +2,11 @@ name: CI/CD
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
   push:
     branches:
       - master
@@ -14,7 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Required PR status check: lint + typecheck + unit tests + production build.
+  # Required PR status check: lint + typecheck + unit tests + Node and Cloudflare builds.
   validate:
     name: Validate application
     runs-on: ubuntu-latest
@@ -43,8 +48,122 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      - name: Test Cloudflare helper scripts
+        run: python3 -m unittest scripts/reset_cloudflare_dev_test.py
+
       - name: Production build
         run: npm run build
+
+      - name: Cloudflare Workers build
+        run: npm run build:cloudflare
+
+      - name: Validate Cloudflare deployments
+        run: |
+          npx wrangler deploy --dry-run --env=""
+          npx wrangler deploy --dry-run --env dev
+
+  deploy-cloudflare-dev:
+    name: Deploy Cloudflare development
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'deploy-dev') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'deploy-dev')
+    needs: validate
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cloudflare-development
+      cancel-in-progress: false
+    environment:
+      name: development
+      url: https://dev.packpal.kripso-world.com
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify development deployment ownership
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          owners="$(gh pr list --state open --label deploy-dev --limit 100 --json number --jq 'map(.number) | join(" ")')"
+          if [ "$owners" != "$PR_NUMBER" ]; then
+            echo "Exactly this PR must be the sole open PR labeled deploy-dev; found: ${owners:-none}" >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy development Worker
+        run: |
+          test -n "$OPENROUTER_API_KEY"
+          npm run build:cloudflare
+          python3 scripts/reset_cloudflare_dev.py
+          npx wrangler d1 migrations apply PACKPAL_DB --remote --env dev
+          npx wrangler deploy --env dev
+          printf '%s' "$OPENROUTER_API_KEY" | npx wrangler secret put OPENROUTER_API_KEY --env dev
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Verify development deployment
+        run: >-
+          curl --fail-with-body --retry 60 --retry-delay 5 --retry-max-time 300
+          --retry-all-errors --connect-timeout 10 --max-time 20
+          https://dev.packpal.kripso-world.com/health/ready
+
+  deploy-cloudflare-production:
+    name: Deploy Cloudflare production
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://packpal.kripso-world.com
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy production Worker
+        run: |
+          test -n "$OPENROUTER_API_KEY"
+          npm run build:cloudflare
+          npx wrangler d1 migrations apply PACKPAL_DB --remote --env=""
+          npx wrangler deploy --env=""
+          printf '%s' "$OPENROUTER_API_KEY" | npx wrangler secret put OPENROUTER_API_KEY --env=""
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Verify production deployment
+        run: >-
+          curl --fail-with-body --retry 60 --retry-delay 5 --retry-max-time 300
+          --retry-all-errors --connect-timeout 10 --max-time 20
+          https://packpal.kripso-world.com/health/ready
 
   image:
     name: Build container image

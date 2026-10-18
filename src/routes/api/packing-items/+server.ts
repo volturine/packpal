@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSessionFromCookies } from '$lib/server/auth';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { packingItems } from '$lib/server/schema';
 import { eq, inArray, and } from 'drizzle-orm';
 import { getAccessibleTripById } from '$lib/server/trip-access';
@@ -55,22 +55,26 @@ type NormalizedPackingItem = {
 
 // GET /api/packing-items?tripId=xxx
 export const GET: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const tripId = event.url.searchParams.get('tripId');
 	if (!tripId) return json({ error: 'tripId required' }, { status: 400 });
 
-	const trip = getAccessibleTripById(session.userId, tripId);
+	const trip = await getAccessibleTripById(session.userId, tripId);
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-	const items = db.select().from(packingItems).where(eq(packingItems.tripId, tripId)).all();
+	const items = await getDb()
+		.select()
+		.from(packingItems)
+		.where(eq(packingItems.tripId, tripId))
+		.all();
 	return json(items);
 };
 
 // POST /api/packing-items - bulk create or single add
 export const POST: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const body = await event.request.json();
@@ -95,7 +99,7 @@ export const POST: RequestHandler = async (event) => {
 
 	if (!tripId) return json({ error: 'tripId required' }, { status: 400 });
 
-	const trip = getAccessibleTripById(session.userId, tripId);
+	const trip = await getAccessibleTripById(session.userId, tripId);
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
 	if (items) {
@@ -122,7 +126,8 @@ export const POST: RequestHandler = async (event) => {
 		const ids: string[] = [];
 		for (const currentItem of normalizedItems) {
 			const id = generateId();
-			db.insert(packingItems)
+			await getDb()
+				.insert(packingItems)
 				.values({
 					id,
 					tripId,
@@ -152,7 +157,8 @@ export const POST: RequestHandler = async (event) => {
 		}
 
 		const id = generateId();
-		db.insert(packingItems)
+		await getDb()
+			.insert(packingItems)
 			.values({
 				id,
 				tripId,
@@ -174,7 +180,7 @@ export const POST: RequestHandler = async (event) => {
 
 // PATCH /api/packing-items - toggle, update, toggleAll, or toggleTrip
 export const PATCH: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const body = await event.request.json();
@@ -182,13 +188,17 @@ export const PATCH: RequestHandler = async (event) => {
 
 	if (action === 'toggle') {
 		const { id } = body as { id: string };
-		const item = db.select().from(packingItems).where(eq(packingItems.id, id)).get();
+		const item = await getDb().select().from(packingItems).where(eq(packingItems.id, id)).get();
 		if (!item) return json({ error: 'Item not found' }, { status: 404 });
 
-		const trip = getAccessibleTripById(session.userId, item.tripId);
+		const trip = await getAccessibleTripById(session.userId, item.tripId);
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-		db.update(packingItems).set({ packed: !item.packed }).where(eq(packingItems.id, id)).run();
+		await getDb()
+			.update(packingItems)
+			.set({ packed: !item.packed })
+			.where(eq(packingItems.id, id))
+			.run();
 		return json({ ok: true, packed: !item.packed });
 	}
 
@@ -201,10 +211,10 @@ export const PATCH: RequestHandler = async (event) => {
 			notes?: string | null;
 			priority?: 'must' | 'normal' | 'optional';
 		};
-		const item = db.select().from(packingItems).where(eq(packingItems.id, id)).get();
+		const item = await getDb().select().from(packingItems).where(eq(packingItems.id, id)).get();
 		if (!item) return json({ error: 'Item not found' }, { status: 404 });
 
-		const trip = getAccessibleTripById(session.userId, item.tripId);
+		const trip = await getAccessibleTripById(session.userId, item.tripId);
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
 		const updateFields: Record<string, unknown> = {};
@@ -233,7 +243,7 @@ export const PATCH: RequestHandler = async (event) => {
 		}
 
 		if (Object.keys(updateFields).length > 0) {
-			db.update(packingItems).set(updateFields).where(eq(packingItems.id, id)).run();
+			await getDb().update(packingItems).set(updateFields).where(eq(packingItems.id, id)).run();
 		}
 		return json({ ok: true });
 	}
@@ -245,14 +255,15 @@ export const PATCH: RequestHandler = async (event) => {
 			packed: boolean;
 			filteredItemIds?: string[];
 		};
-		const trip = getAccessibleTripById(session.userId, tripId);
+		const trip = await getAccessibleTripById(session.userId, tripId);
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
 		const conditions = [eq(packingItems.tripId, tripId)];
 		if (category) conditions.push(eq(packingItems.category, category));
 		if (filteredItemIds?.length) conditions.push(inArray(packingItems.id, filteredItemIds));
 
-		db.update(packingItems)
+		await getDb()
+			.update(packingItems)
 			.set({ packed })
 			.where(and(...conditions))
 			.run();
@@ -266,13 +277,14 @@ export const PATCH: RequestHandler = async (event) => {
 			filteredItemIds?: string[];
 		};
 
-		const trip = getAccessibleTripById(session.userId, tripId);
+		const trip = await getAccessibleTripById(session.userId, tripId);
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
 		const conditions = [eq(packingItems.tripId, tripId)];
 		if (filteredItemIds?.length) conditions.push(inArray(packingItems.id, filteredItemIds));
 
-		db.update(packingItems)
+		await getDb()
+			.update(packingItems)
 			.set({ packed })
 			.where(and(...conditions))
 			.run();
@@ -285,18 +297,18 @@ export const PATCH: RequestHandler = async (event) => {
 
 // DELETE /api/packing-items
 export const DELETE: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const { id } = (await event.request.json()) as { id: string };
 	if (!id) return json({ error: 'Item ID required' }, { status: 400 });
 
-	const item = db.select().from(packingItems).where(eq(packingItems.id, id)).get();
+	const item = await getDb().select().from(packingItems).where(eq(packingItems.id, id)).get();
 	if (!item) return json({ error: 'Item not found' }, { status: 404 });
 
-	const trip = getAccessibleTripById(session.userId, item.tripId);
+	const trip = await getAccessibleTripById(session.userId, item.tripId);
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-	db.delete(packingItems).where(eq(packingItems.id, id)).run();
+	await getDb().delete(packingItems).where(eq(packingItems.id, id)).run();
 	return json({ ok: true });
 };

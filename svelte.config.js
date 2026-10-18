@@ -1,9 +1,11 @@
-import adapter from '@sveltejs/adapter-node';
+import adapterCloudflare from '@sveltejs/adapter-cloudflare';
+import adapterNode from '@sveltejs/adapter-node';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
 	kit: {
-		adapter: adapter(),
+		// Self-hosted Node builds are the default; DEPLOY_TARGET=cloudflare builds the Workers bundle.
+		adapter: process.env.DEPLOY_TARGET === 'cloudflare' ? adapterCloudflare() : adapterNode(),
 		experimental: {
 			remoteFunctions: true
 		}

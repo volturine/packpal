@@ -8,15 +8,14 @@ const helpers = vi.hoisted(() => {
 
 vi.mock('$lib/server/db', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { TEST_DDL } = await import('$lib/server/test-db-helpers');
-	const { drizzle } = await import('drizzle-orm/better-sqlite3');
+	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
-	sqlite.exec(TEST_DDL);
+	applyMigrations(sqlite);
 	helpers.sqliteRef = sqlite;
 
-	return { db: drizzle({ client: sqlite }) };
+	return { getDb: () => createSqliteDb(sqlite) };
 });
 
 import { GET, POST, PATCH, DELETE } from './+server';
@@ -37,7 +36,7 @@ beforeEach(() => {
 const NOW = Date.now();
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 
-function createAuthEvent(opts: {
+async function createAuthEvent(opts: {
 	method?: string;
 	body?: Record<string, unknown>;
 	sessionUserId?: string;
@@ -54,7 +53,7 @@ function createAuthEvent(opts: {
 				displayName: `User ${opts.sessionUserId}`
 			});
 		}
-		sessionId = createSession(opts.sessionUserId);
+		sessionId = await createSession(opts.sessionUserId);
 	}
 
 	const cookieStore: Record<string, string> = {};
@@ -93,13 +92,13 @@ function createAuthEvent(opts: {
 
 describe('GET /api/packing-presets', () => {
 	it('returns 401 when not authenticated', async () => {
-		const event = createAuthEvent({ method: 'GET' });
+		const event = await createAuthEvent({ method: 'GET' });
 		const response = await GET(event);
 		expect(response.status).toBe(401);
 	});
 
 	it('returns empty array when no presets exist', async () => {
-		const event = createAuthEvent({ method: 'GET', sessionUserId: 'user-1' });
+		const event = await createAuthEvent({ method: 'GET', sessionUserId: 'user-1' });
 		const response = await GET(event);
 		const data = await response.json();
 
@@ -110,7 +109,7 @@ describe('GET /api/packing-presets', () => {
 
 describe('POST /api/packing-presets', () => {
 	it('creates a preset directly', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: {
@@ -156,7 +155,7 @@ describe('POST /api/packing-presets', () => {
 			category: 'Toiletries & Hygiene'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: { action: 'saveFromTrip', tripId: 'trip-1', name: 'My Beach Preset' }
@@ -178,7 +177,7 @@ describe('POST /api/packing-presets', () => {
 	});
 
 	it('rejects preset with missing name', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: {
@@ -203,7 +202,7 @@ describe('PATCH /api/packing-presets', () => {
        VALUES ('preset-1', 'user-1', 'Test', '[]', ${NOW}, NULL)`
 		);
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: { id: 'preset-1', action: 'markUsed' }
@@ -233,7 +232,7 @@ describe('PATCH /api/packing-presets', () => {
        VALUES ('preset-1', 'user-1', 'Test', '[]', ${NOW}, NULL)`
 		);
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-2',
 			body: { id: 'preset-1', action: 'markUsed' }
@@ -255,7 +254,7 @@ describe('DELETE /api/packing-presets', () => {
        VALUES ('preset-1', 'user-1', 'Test', '[]', ${NOW}, NULL)`
 		);
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'DELETE',
 			sessionUserId: 'user-1',
 			body: { id: 'preset-1' }
@@ -285,7 +284,7 @@ describe('DELETE /api/packing-presets', () => {
        VALUES ('preset-1', 'user-1', 'Test', '[]', ${NOW}, NULL)`
 		);
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'DELETE',
 			sessionUserId: 'user-2',
 			body: { id: 'preset-1' }
