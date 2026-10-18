@@ -1,193 +1,288 @@
 import { env } from '$env/dynamic/private';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { rateLimitByIp } from '$lib/server/rate-limit';
+import type { Trip } from '$lib/types';
+import { getSessionFromCookies } from '$lib/server/auth';
+import { getAccessibleTripById } from '$lib/server/trip-access';
+import { getTripItems } from '$lib/server/trip-enrichment';
+import { getTripInsightSummary } from '$lib/packing-insights';
+import { buildSystemPrompt } from '$lib/server/ai-prompt';
+import { getStripeMode, isStripeConfigured } from '$lib/server/stripe';
+import {
+	recordGeneration,
+	releaseUsage,
+	reserveUsage,
+	settleUsage
+} from '$lib/server/billing-wallet';
+import { parseProviderUsage, reconcileUsage } from '$lib/server/billing-usage';
 
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
-
-interface ChatMessage {
-	role: 'user' | 'assistant' | 'system';
+const MAX_BODY_BYTES = 65_536;
+const MAX_PROMPT_BYTES = 16_384;
+const encoder = new TextEncoder();
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+interface Message {
+	role: 'user' | 'assistant';
 	content: string;
 }
 
-interface TripContext {
-	name: string;
-	destination: string;
-	country?: string | null;
-	climate: string;
-	activities: string[];
-	startDate: number;
-	endDate: number;
-	travelers: number;
-	ownerDisplayName?: string;
-	contradictions?: { message: string; severity: 'warning' | 'info' }[];
-	packingItems: {
-		name: string;
-		category: string;
-		packed: boolean;
-		notes?: string | null;
-		priority?: 'must' | 'normal' | 'optional';
-	}[];
+async function readBody(request: Request): Promise<unknown> {
+	const reader = request.body?.getReader();
+	if (!reader) throw new Error('Missing body');
+	const decoder = new TextDecoder();
+	let size = 0;
+	let text = '';
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		size += value.byteLength;
+		if (size > MAX_BODY_BYTES) {
+			await reader.cancel();
+			throw new Error('Body too large');
+		}
+		text += decoder.decode(value, { stream: true });
+	}
+	return JSON.parse(text + decoder.decode());
 }
 
-function buildSystemPrompt(trip: TripContext): string {
-	const startDate = new Date(trip.startDate).toLocaleDateString();
-	const endDate = new Date(trip.endDate).toLocaleDateString();
-	const duration = Math.ceil((trip.endDate - trip.startDate) / (1000 * 60 * 60 * 24));
-	const packedCount = trip.packingItems.filter((item) => item.packed).length;
-	const totalCount = trip.packingItems.length;
-	const unpackedItems = trip.packingItems.filter((item) => !item.packed);
-	const priorityItems = unpackedItems.filter((item) => item.priority === 'must');
-
-	const categories = new Map<string, string[]>();
-	for (const item of unpackedItems) {
-		const list = categories.get(item.category) ?? [];
-		const detail = [
-			item.name,
-			item.priority === 'must' ? 'must-pack' : null,
-			item.notes ? `note: ${item.notes}` : null
-		]
-			.filter(Boolean)
-			.join(', ');
-		list.push(detail);
-		categories.set(item.category, list);
-	}
-
-	let itemsSummary = '';
-	for (const [category, items] of categories) {
-		itemsSummary += `\n  ${category}: ${items.join('; ')}`;
-	}
-
-	const contradictions = trip.contradictions?.length
-		? trip.contradictions.map((contradiction) => `- ${contradiction.message}`).join('\n')
-		: '- None identified';
-
-	return `You are PackPal AI, a practical travel packing assistant.
-
-Trip brief:
-- Trip: ${trip.name}
-- Destination: ${trip.destination}${trip.country ? `, ${trip.country}` : ''}
-- Dates: ${startDate} to ${endDate} (${duration} days)
-- Climate: ${trip.climate}
-- Activities: ${trip.activities.join(', ')}
-- Travelers: ${trip.travelers}
-- Owner: ${trip.ownerDisplayName ?? 'Unknown'}
-- Packing progress: ${packedCount}/${totalCount} items packed
-- Must-pack items still unpacked: ${priorityItems.length}
-
-Current contradictions or warnings:
-${contradictions}
-
-Unpacked items still on the list:${itemsSummary || '\n  None'}
-
-Rules:
-- Be specific, concise, and action-oriented.
-- Prioritize unpacked and must-pack items first.
-- Call out likely missing essentials based on destination, climate, and activities.
-- If useful, include a short section titled "Suggested actions".
-- When suggesting concrete checklist additions, format them exactly like:
-  ADD_ITEM: item name | category | priority | optional note
-- Only emit ADD_ITEM lines for genuinely useful additions.
-- Avoid generic filler and avoid repeating the obvious.`;
+function validMessages(value: unknown): value is Message[] {
+	return (
+		Array.isArray(value) &&
+		value.length > 0 &&
+		value.length <= 30 &&
+		value.every(
+			(message) =>
+				message &&
+				(message.role === 'user' || message.role === 'assistant') &&
+				typeof message.content === 'string' &&
+				message.content.trim().length > 0
+		) &&
+		value.at(-1).role === 'user'
+	);
 }
 
-export const POST: RequestHandler = async ({ request, getClientAddress }) => {
-	const { allowed, retryAfterMs } = rateLimitByIp({ getClientAddress }, 'chat:ai', 20, 60_000);
-	if (!allowed) {
+export const POST: RequestHandler = async (event) => {
+	const session = await getSessionFromCookies(event);
+	if (!session) return json({ error: 'Sign in to use AI.' }, { status: 401 });
+	const userId = session.userId;
+	if (event.request.headers.get('origin') !== event.url.origin) {
+		return json({ error: 'Invalid request origin.' }, { status: 403 });
+	}
+	const testMode = getStripeMode() === 'test';
+	if (!isStripeConfigured() || (!testMode && !env.OPENROUTER_API_KEY)) {
+		return json({ error: 'AI is temporarily unavailable.' }, { status: 503 });
+	}
+	let body;
+	try {
+		body = await readBody(event.request);
+	} catch {
+		return json({ error: 'Invalid or oversized chat request.' }, { status: 400 });
+	}
+	if (!body || typeof body !== 'object')
+		return json({ error: 'Invalid chat request.' }, { status: 400 });
+	const { tripId, requestId, messages } = body as Record<string, unknown>;
+	if (
+		typeof tripId !== 'string' ||
+		tripId.length > 128 ||
+		typeof requestId !== 'string' ||
+		!UUID.test(requestId) ||
+		!validMessages(messages)
+	) {
 		return json(
-			{ error: 'Too many AI requests. Try again later.' },
-			{ status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
+			{ error: 'Provide a trip, request ID, and up to 30 chat messages.' },
+			{ status: 400 }
+		);
+	}
+	const usageId = requestId;
+	const trip = await getAccessibleTripById(userId, tripId);
+	if (!trip) return json({ error: 'Trip not found.' }, { status: 404 });
+	const items = await getTripItems(tripId);
+	const insights = getTripInsightSummary(trip as Trip, items);
+	const system = {
+		role: 'system',
+		content: buildSystemPrompt({
+			...trip,
+			contradictions: insights.contradictions,
+			packingItems: items
+		})
+	};
+	const history = messages.map(({ role, content }) => ({ role, content }));
+	// Keep the newest part of long conversations, rather than accepting an unbounded prompt.
+	while (
+		history.length > 1 &&
+		encoder.encode(JSON.stringify([system, ...history])).length > MAX_PROMPT_BYTES
+	)
+		history.shift();
+	const prompt = [system, ...history];
+	if (encoder.encode(JSON.stringify(prompt)).length > MAX_PROMPT_BYTES) {
+		return json(
+			{ error: 'This trip or message is too large for AI. Shorten your message or trip notes.' },
+			{ status: 413 }
+		);
+	}
+	await reconcileUsage(userId);
+	const reservation = await reserveUsage({ id: usageId, userId: userId, tripId });
+	if (reservation === 'duplicate')
+		return json(
+			{ error: 'This request was already submitted. Check your credit history before retrying.' },
+			{ status: 409 }
+		);
+	if (reservation === 'rate_limited')
+		return json(
+			{ error: 'Too many AI requests. Try again in a minute.' },
+			{ status: 429, headers: { 'Retry-After': '60' } }
+		);
+	if (reservation !== 'reserved')
+		return json({ error: 'Add AI credit before sending a message.' }, { status: 402 });
+
+	if (testMode) {
+		// Stripe test money cannot pay for real inference. Exercise the same wallet
+		// settlement path with an explicitly simulated response and cost.
+		await settleUsage({
+			id: usageId,
+			userId,
+			providerCostMicroUsd: 3000,
+			promptTokens: 100,
+			completionTokens: 30
+		});
+		const content =
+			'Test response only — no AI provider was called. Pack travel documents, weather-appropriate clothing, and any essential medication.';
+		return new Response(`data: ${JSON.stringify({ content })}\n\ndata: [DONE]\n\n`, {
+			headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' }
+		});
+	}
+
+	let upstream: Response;
+	try {
+		upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+				'Content-Type': 'application/json',
+				'HTTP-Referer': event.url.origin,
+				'X-Title': 'PackPal'
+			},
+			body: JSON.stringify({
+				model: 'anthropic/claude-sonnet-4',
+				messages: prompt,
+				stream: true,
+				max_tokens: 1024,
+				// Combined with the 16 KiB text-only prompt and 1024 output tokens, these
+				// caps fit within the disclosed $0.30 retail hold, including a generous
+				// per-message token overhead. Disallow additional per-request pricing.
+				provider: { max_price: { prompt: 5, completion: 20, request: 0 }, require_parameters: true }
+			}),
+			signal: AbortSignal.timeout(90_000)
+		});
+	} catch {
+		// The provider might have accepted this request. Preserve its hold until cost is known.
+		return json(
+			{ error: 'The AI request could not be confirmed. Its credit hold is pending review.' },
+			{ status: 502 }
+		);
+	}
+	if (!upstream.ok || !upstream.body) {
+		if ([400, 401, 402, 403, 404, 422, 429].includes(upstream.status)) {
+			await releaseUsage(usageId, userId);
+		}
+		return json(
+			{ error: 'The AI provider is unavailable. Check your credit history before retrying.' },
+			{ status: 502 }
 		);
 	}
 
-	const OPENROUTER_API_KEY = env.OPENROUTER_API_KEY;
-
-	if (!OPENROUTER_API_KEY) {
-		return json({ error: 'OPENROUTER_API_KEY not configured' }, { status: 500 });
-	}
-
-	const body = await request.json();
-	const { messages, tripContext } = body as {
-		messages: ChatMessage[];
-		tripContext: TripContext;
-	};
-
-	const systemPrompt = buildSystemPrompt(tripContext);
-	const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-			'Content-Type': 'application/json',
-			'HTTP-Referer': 'https://packpal.app',
-			'X-Title': 'PackPal'
-		},
-		body: JSON.stringify({
-			model: 'anthropic/claude-sonnet-4',
-			messages: [{ role: 'system', content: systemPrompt }, ...messages],
-			stream: true,
-			max_tokens: 1024
-		})
-	});
-
-	if (!response.ok) {
-		const errorText = await response.text();
-		return json({ error: `OpenRouter error: ${errorText}` }, { status: response.status });
-	}
-
-	const stream = new ReadableStream({
-		async start(controller) {
-			const reader = response.body?.getReader();
-			if (!reader) {
-				controller.close();
-				return;
-			}
-
-			const decoder = new TextDecoder();
-			let buffer = '';
-
-			try {
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) break;
-
-					buffer += decoder.decode(value, { stream: true });
-					const lines = buffer.split('\n');
-					buffer = lines.pop() ?? '';
-
-					for (const line of lines) {
-						const trimmed = line.trim();
-						if (!trimmed || !trimmed.startsWith('data: ')) continue;
-
-						const data = trimmed.slice(6);
-						if (data === '[DONE]') {
-							controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-							continue;
+	let connected = true;
+	const reader = upstream.body.getReader();
+	const stream = new ReadableStream<Uint8Array>({
+		start(controller) {
+			const send = (value: unknown) => {
+				if (!connected) return;
+				try {
+					controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));
+				} catch {
+					connected = false;
+				}
+			};
+			const work = (async () => {
+				const decoder = new TextDecoder();
+				let buffer = '';
+				let generationId: string | undefined;
+				const accounting: { usage: ReturnType<typeof parseProviderUsage> } = { usage: null };
+				let failed = false;
+				async function consume(line: string) {
+					if (!line.startsWith('data:')) return;
+					const data = line.slice(5).trim();
+					if (!data || data === '[DONE]') return;
+					let chunk: {
+						id?: unknown;
+						error?: unknown;
+						usage?: unknown;
+						choices?: { delta?: { content?: unknown } }[];
+					};
+					try {
+						const value: unknown = JSON.parse(data);
+						if (!value || typeof value !== 'object') return;
+						chunk = value;
+					} catch {
+						return;
+					}
+					if (!generationId && typeof chunk.id === 'string' && chunk.id.length <= 200) {
+						const id = chunk.id;
+						generationId = id;
+						await recordGeneration(usageId, userId, id);
+					}
+					if (chunk.error) failed = true;
+					const parsed = parseProviderUsage(chunk.usage);
+					if (parsed) accounting.usage = parsed;
+					const content = chunk.choices?.[0]?.delta?.content;
+					if (typeof content === 'string' && content) send({ content });
+				}
+				try {
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) break;
+						buffer += decoder.decode(value, { stream: true });
+						if (buffer.length > 131_072) throw new Error('Oversized upstream event');
+						let newline;
+						while ((newline = buffer.indexOf('\n')) !== -1) {
+							const line = buffer.slice(0, newline);
+							buffer = buffer.slice(newline + 1);
+							await consume(line);
 						}
-
+					}
+					await consume(buffer + decoder.decode());
+					if (accounting.usage) await settleUsage({ id: usageId, userId, ...accounting.usage });
+					if (failed) send({ error: 'The AI provider could not complete this response.' });
+					if (!accounting.usage)
+						send({
+							error: 'Usage confirmation is pending. Check your credit history before retrying.'
+						});
+				} catch {
+					// A disconnect or uncertain provider error never releases possibly spent credit.
+					send({
+						error:
+							'The response was interrupted. Its credit hold will be reconciled when usage is confirmed.'
+					});
+					console.error('AI request requires usage reconciliation', usageId);
+				} finally {
+					if (connected) {
 						try {
-							const parsed = JSON.parse(data);
-							const content = parsed.choices?.[0]?.delta?.content;
-							if (content) {
-								controller.enqueue(
-									new TextEncoder().encode(`data: ${JSON.stringify({ content })}\n\n`)
-								);
-							}
+							controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+							controller.close();
 						} catch {
-							// Skip malformed JSON lines
+							/* Client disconnected. */
 						}
 					}
 				}
-			} finally {
-				controller.close();
-			}
+			})();
+			// Continue accounting if a browser closes the stream. Workers may still stop
+			// background work after their grace period; persisted holds remain fail-closed.
+			event.platform?.context.waitUntil(work);
+		},
+		cancel() {
+			connected = false;
 		}
 	});
-
 	return new Response(stream, {
-		headers: {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache',
-			Connection: 'keep-alive'
-		}
+		headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' }
 	});
 };

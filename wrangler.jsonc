@@ -6,6 +6,7 @@
 	"compatibility_date": "2026-10-01",
 	// Production is reachable only through its custom domain; no *.workers.dev URL.
 	"workers_dev": false,
+	"vars": { "STRIPE_MODE": "live" },
 	// Version preview URLs would bind the production D1 database. Keep them off.
 	"preview_urls": false,
 	"observability": {
@@ -29,9 +30,11 @@
 			"migrations_dir": "cf/migrations"
 		}
 	],
-	// Secrets (per environment): OPENROUTER_API_KEY — see .dev.vars.example.
+	// Secrets: OPENROUTER_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET.
+	// Development accepts test payments; production accepts live payments only.
 	"env": {
 		"dev": {
+			"vars": { "STRIPE_MODE": "test" },
 			"routes": [
 				{
 					"pattern": "dev.packpal.kripso-world.com",

@@ -74,6 +74,23 @@ test.describe('Trip CRUD', () => {
 		await expect(page).toHaveURL(/\/app\/trips\/new/);
 	});
 
+	test('a checkout return cannot create free AI credit', async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.getByRole('link', { name: 'AI credits', exact: true }).click();
+		await expect(page.getByRole('heading', { name: 'AI credits', exact: true })).toBeVisible();
+		await page.goto('/app/billing?checkout=success');
+		await expect(
+			page.getByText('Payment processing; credits appear after payment confirmation.')
+		).toBeVisible();
+		await expect(page.getByText('No credit activity yet.')).toBeVisible();
+		expect(
+			await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+		).toBe(true);
+		const response = await page.request.get('/api/billing');
+		expect(response.ok()).toBeTruthy();
+		expect((await response.json()).balanceMicroUsd).toBe(0);
+	});
+
 	test('can create and manage a trip with new dashboard and packing flows', async ({ page }) => {
 		await page.getByRole('link', { name: /new trip/i }).click();
 		await expect(page).toHaveURL(/\/app\/trips\/new/);
@@ -181,4 +198,15 @@ test.describe('Trip CRUD', () => {
 		await expect(page).toHaveURL(/\/app$/);
 		await expect(page.getByText(editedTripName)).toHaveCount(0);
 	});
+});
+
+test('anonymous callers cannot use the AI endpoint', async ({ request }) => {
+	const response = await request.post('/api/chat', {
+		data: {
+			tripId: 'unknown',
+			requestId: crypto.randomUUID(),
+			messages: [{ role: 'user', content: 'Hello' }]
+		}
+	});
+	expect(response.status()).toBe(401);
 });

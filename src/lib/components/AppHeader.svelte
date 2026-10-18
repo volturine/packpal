@@ -51,11 +51,23 @@
 			{/if}
 		</div>
 
-		<div class="flex flex-wrap items-center justify-end gap-2">
+		<div class="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2">
 			{#if actions}
 				{@render actions()}
 			{/if}
-			<a href="/app/profile" class="text-sm text-slate-600 transition-colors hover:text-brand-600">
+			<nav aria-label="Primary navigation">
+				<a
+					href="/app/billing"
+					class="rounded-md px-2 py-1 text-sm text-slate-600 transition-colors hover:text-brand-600"
+				>
+					AI credits
+				</a>
+			</nav>
+			<a
+				href="/app/profile"
+				title={auth.user?.displayName}
+				class="max-w-48 truncate text-sm text-slate-600 transition-colors hover:text-brand-600 sm:max-w-64"
+			>
 				{auth.user?.displayName}
 			</a>
 			<button
