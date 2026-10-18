@@ -8,15 +8,14 @@ const helpers = vi.hoisted(() => {
 
 vi.mock('$lib/server/db', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { TEST_DDL } = await import('./test-db-helpers');
-	const { drizzle } = await import('drizzle-orm/better-sqlite3');
+	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
-	sqlite.exec(TEST_DDL);
+	applyMigrations(sqlite);
 	helpers.sqliteRef = sqlite;
 
-	return { db: drizzle({ client: sqlite }) };
+	return { getDb: () => createSqliteDb(sqlite) };
 });
 
 // Import AFTER mock declaration
@@ -87,13 +86,13 @@ function seedData() {
 }
 
 describe('getTripItems', () => {
-	it('returns all items for a trip', () => {
+	it('returns all items for a trip', async () => {
 		seedData();
-		const items = getTripItems('trip-1');
+		const items = await getTripItems('trip-1');
 		expect(items).toHaveLength(3);
 	});
 
-	it('returns empty array for trip with no items', () => {
+	it('returns empty array for trip with no items', async () => {
 		seedData();
 		insertTestTrip(helpers.sqliteRef!, {
 			id: 'trip-empty',
@@ -103,13 +102,13 @@ describe('getTripItems', () => {
 			startDate: NOW + WEEK,
 			endDate: NOW + 2 * WEEK
 		});
-		const items = getTripItems('trip-empty');
+		const items = await getTripItems('trip-empty');
 		expect(items).toEqual([]);
 	});
 
-	it('returns items with correct fields', () => {
+	it('returns items with correct fields', async () => {
 		seedData();
-		const items = getTripItems('trip-1');
+		const items = await getTripItems('trip-1');
 		const passport = items.find((i) => i.name === 'Passport');
 		expect(passport).toBeDefined();
 		expect(passport!.id).toBe('item-1');
@@ -121,7 +120,7 @@ describe('getTripItems', () => {
 });
 
 describe('enrichTrip', () => {
-	it('returns enriched trip with item counts', () => {
+	it('returns enriched trip with item counts', async () => {
 		seedData();
 
 		const tripRecord: AccessibleTripRecord = {
@@ -143,7 +142,7 @@ describe('enrichTrip', () => {
 			isShared: false
 		};
 
-		const result = enrichTrip(tripRecord, 'user-1');
+		const result = await enrichTrip(tripRecord, 'user-1');
 
 		expect(result.itemCount).toBe(3);
 		expect(result.packedCount).toBe(1); // only sunscreen
@@ -152,7 +151,7 @@ describe('enrichTrip', () => {
 		expect(result.ownerDisplayName).toBe('Alice');
 	});
 
-	it('includes collaborator count', () => {
+	it('includes collaborator count', async () => {
 		seedData();
 		insertTestCollaborator(helpers.sqliteRef!, {
 			id: 'collab-1',
@@ -180,12 +179,12 @@ describe('enrichTrip', () => {
 			isShared: false
 		};
 
-		const result = enrichTrip(tripRecord, 'user-1');
+		const result = await enrichTrip(tripRecord, 'user-1');
 		expect(result.collaboratorCount).toBe(1);
 		expect(result.collaborators).toHaveLength(1);
 	});
 
-	it('sets isShared correctly for non-owner viewer', () => {
+	it('sets isShared correctly for non-owner viewer', async () => {
 		seedData();
 
 		const tripRecord: AccessibleTripRecord = {
@@ -207,11 +206,11 @@ describe('enrichTrip', () => {
 			isShared: true
 		};
 
-		const result = enrichTrip(tripRecord, 'user-2');
+		const result = await enrichTrip(tripRecord, 'user-2');
 		expect(result.isShared).toBe(true);
 	});
 
-	it('includes trip status and countdown', () => {
+	it('includes trip status and countdown', async () => {
 		seedData();
 
 		const tripRecord: AccessibleTripRecord = {
@@ -233,7 +232,7 @@ describe('enrichTrip', () => {
 			isShared: false
 		};
 
-		const result = enrichTrip(tripRecord, 'user-1');
+		const result = await enrichTrip(tripRecord, 'user-1');
 		expect(result.tripStatus).toBe('upcoming');
 		expect(result.countdownLabel).toBeDefined();
 		expect(result.contradictions).toBeInstanceOf(Array);

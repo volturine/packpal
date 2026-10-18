@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSessionFromCookies, hashPassword, verifyPassword } from '$lib/server/auth';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { users } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { sanitizeText } from '$lib/server/utils';
 
 export const GET: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) {
 		return json({ user: null });
 	}
@@ -21,7 +21,7 @@ export const GET: RequestHandler = async (event) => {
 };
 
 export const PATCH: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const body = await event.request.json();
@@ -31,7 +31,7 @@ export const PATCH: RequestHandler = async (event) => {
 		newPassword?: string;
 	};
 
-	const user = db.select().from(users).where(eq(users.id, session.userId)).get();
+	const user = await getDb().select().from(users).where(eq(users.id, session.userId)).get();
 	if (!user) return json({ error: 'User not found' }, { status: 404 });
 
 	if (newPassword) {
@@ -44,7 +44,8 @@ export const PATCH: RequestHandler = async (event) => {
 		if (newPassword.length < 6) {
 			return json({ error: 'New password must be at least 6 characters' }, { status: 400 });
 		}
-		db.update(users)
+		await getDb()
+			.update(users)
 			.set({ passwordHash: hashPassword(newPassword) })
 			.where(eq(users.id, session.userId))
 			.run();
@@ -55,10 +56,14 @@ export const PATCH: RequestHandler = async (event) => {
 		if (!sanitized) {
 			return json({ error: 'Display name cannot be empty' }, { status: 400 });
 		}
-		db.update(users).set({ displayName: sanitized }).where(eq(users.id, session.userId)).run();
+		await getDb()
+			.update(users)
+			.set({ displayName: sanitized })
+			.where(eq(users.id, session.userId))
+			.run();
 	}
 
-	const updated = db.select().from(users).where(eq(users.id, session.userId)).get();
+	const updated = await getDb().select().from(users).where(eq(users.id, session.userId)).get();
 	return json({
 		user: {
 			id: updated!.id,

@@ -2,7 +2,7 @@
 
 Smart packing helper for trips: packing lists with templates, collaborators, and AI-assisted suggestions, backed by SQLite.
 
-**Stack:** Node.js 24 + SvelteKit 5 + TypeScript · Tailwind CSS 4 · better-sqlite3 · drizzle-orm · npm
+**Stack:** Node.js 24 + SvelteKit 5 + TypeScript · Tailwind CSS 4 · drizzle-orm (better-sqlite3 on Node, D1 on Cloudflare Workers) · npm
 
 ## Commands
 
@@ -14,8 +14,10 @@ npm run lint                # Prettier check + ESLint
 npm run format              # Prettier write
 npm run test:unit           # Vitest unit tests
 npm run test                # Playwright e2e (isolated test DB, port 5199)
-npm run build               # production build
-npm run validate            # lint + check + unit tests + production build
+npm run build               # production build (adapter-node)
+npm run build:cloudflare    # Cloudflare Workers build (adapter-cloudflare, .svelte-kit/cloudflare/)
+npm run cf:dev              # wrangler dev against a local D1
+npm run validate            # lint + check + unit tests + Node and Cloudflare builds
 ```
 
 - Use npm commands for dependency changes; do not hand-edit `package.json` or the lockfile.
@@ -28,7 +30,8 @@ npm run validate            # lint + check + unit tests + production build
 Code/config: `npm run validate` && `npm run test` before done or review. Markdown-only: skip unless asked.
 
 - Fix failures and warnings immediately (pre-existing ones when you touch the area). Unfixable third-party stub warnings: inline comment why.
-- Add backend tests for new/changed backend behavior. Route tests mock `$lib/server/db` with an in-memory `better-sqlite3` database (`src/lib/server/test-db-helpers.ts` has shared DDL and seed helpers).
+- Add backend tests for new/changed backend behavior. Route tests mock `$lib/server/db` with an in-memory `better-sqlite3` database: `applyMigrations` + `createSqliteDb` from `src/lib/server/sqlite.ts` build it, `src/lib/server/test-db-helpers.ts` has seed helpers.
+- Database access is asynchronous on both runtimes: always `await` drizzle calls obtained from `getDb()`. The schema is defined once in `cf/migrations/*.sql`; add a new numbered file for every schema change.
 
 ## PackPal security
 

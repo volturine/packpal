@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createSession, setSessionCookie, verifyPassword } from '$lib/server/auth';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { users } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { rateLimitByIp } from '$lib/server/rate-limit';
@@ -22,12 +22,12 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'Username and password are required' }, { status: 400 });
 	}
 
-	const user = db.select().from(users).where(eq(users.username, username.trim())).get();
+	const user = await getDb().select().from(users).where(eq(users.username, username.trim())).get();
 	if (!user || !verifyPassword(password, user.passwordHash)) {
 		return json({ error: 'Invalid username or password' }, { status: 401 });
 	}
 
-	const sessionId = createSession(user.id);
+	const sessionId = await createSession(user.id);
 	setSessionCookie(event, sessionId);
 
 	return json({

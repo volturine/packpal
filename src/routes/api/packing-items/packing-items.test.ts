@@ -8,15 +8,14 @@ const helpers = vi.hoisted(() => {
 
 vi.mock('$lib/server/db', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { TEST_DDL } = await import('$lib/server/test-db-helpers');
-	const { drizzle } = await import('drizzle-orm/better-sqlite3');
+	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
-	sqlite.exec(TEST_DDL);
+	applyMigrations(sqlite);
 	helpers.sqliteRef = sqlite;
 
-	return { db: drizzle({ client: sqlite }) };
+	return { getDb: () => createSqliteDb(sqlite) };
 });
 
 import { GET, POST, PATCH, DELETE } from './+server';
@@ -37,7 +36,7 @@ beforeEach(() => {
 const NOW = Date.now();
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 
-function createAuthEvent(opts: {
+async function createAuthEvent(opts: {
 	method?: string;
 	body?: Record<string, unknown>;
 	url?: string;
@@ -55,7 +54,7 @@ function createAuthEvent(opts: {
 				displayName: `User ${opts.sessionUserId}`
 			});
 		}
-		sessionId = createSession(opts.sessionUserId);
+		sessionId = await createSession(opts.sessionUserId);
 	}
 
 	const cookieStore: Record<string, string> = {};
@@ -110,7 +109,7 @@ function seedTrip() {
 
 describe('GET /api/packing-items', () => {
 	it('returns 401 when not authenticated', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'GET',
 			url: 'http://localhost/api/packing-items?tripId=trip-1'
 		});
@@ -119,7 +118,7 @@ describe('GET /api/packing-items', () => {
 	});
 
 	it('returns 400 without tripId', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'GET',
 			sessionUserId: 'user-1',
 			url: 'http://localhost/api/packing-items'
@@ -138,7 +137,7 @@ describe('GET /api/packing-items', () => {
 			category: 'Documents & Money'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'GET',
 			sessionUserId: 'user-1',
 			url: 'http://localhost/api/packing-items?tripId=trip-1'
@@ -156,7 +155,7 @@ describe('POST /api/packing-items', () => {
 	it('creates a single item', async () => {
 		seedTrip();
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: {
@@ -180,7 +179,7 @@ describe('POST /api/packing-items', () => {
 	it('creates bulk items', async () => {
 		seedTrip();
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: {
@@ -201,7 +200,7 @@ describe('POST /api/packing-items', () => {
 	it('returns 400 without items or item', async () => {
 		seedTrip();
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: { tripId: 'trip-1' }
@@ -218,7 +217,7 @@ describe('POST /api/packing-items', () => {
 			displayName: 'Bob'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-2',
 			body: {
@@ -233,7 +232,7 @@ describe('POST /api/packing-items', () => {
 	it('rejects items with empty names', async () => {
 		seedTrip();
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: {
@@ -251,7 +250,7 @@ describe('POST /api/packing-items', () => {
 	it('rejects items with invalid quantities', async () => {
 		seedTrip();
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: {
@@ -269,7 +268,7 @@ describe('POST /api/packing-items', () => {
 	it('rejects bulk items before inserting partial data', async () => {
 		seedTrip();
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: {
@@ -305,7 +304,7 @@ describe('PATCH /api/packing-items', () => {
 			packed: false
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: { action: 'toggle', id: 'item-1' }
@@ -328,7 +327,7 @@ describe('PATCH /api/packing-items', () => {
 			category: 'Documents & Money'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: {
@@ -358,7 +357,7 @@ describe('PATCH /api/packing-items', () => {
 			category: 'Documents & Money'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: {
@@ -401,7 +400,7 @@ describe('PATCH /api/packing-items', () => {
 			packed: false
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: { action: 'toggleAll', tripId: 'trip-1', category: 'Clothing', packed: true }
@@ -441,7 +440,7 @@ describe('PATCH /api/packing-items', () => {
 			packed: false
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: { action: 'toggleTrip', tripId: 'trip-1', packed: true }
@@ -456,7 +455,7 @@ describe('PATCH /api/packing-items', () => {
 	});
 
 	it('returns 400 for unknown action', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'PATCH',
 			sessionUserId: 'user-1',
 			body: { action: 'unknownAction' }
@@ -477,7 +476,7 @@ describe('DELETE /api/packing-items', () => {
 			category: 'Documents & Money'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'DELETE',
 			sessionUserId: 'user-1',
 			body: { id: 'item-1' }
@@ -494,7 +493,7 @@ describe('DELETE /api/packing-items', () => {
 	it('returns 404 for non-existent item', async () => {
 		seedTrip();
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'DELETE',
 			sessionUserId: 'user-1',
 			body: { id: 'nonexistent' }

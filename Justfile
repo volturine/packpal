@@ -46,3 +46,15 @@ preview: build
 # Docker build and run
 docker:
     docker compose --project-directory . -f docker/compose.yaml up -d --build
+
+# Cloudflare Workers: local dev against a local D1
+cf-dev:
+    npm run cf:dev
+
+# Cloudflare Workers: deploy production (migrates D1 first)
+cf-deploy:
+    npm run cf:deploy
+
+# Cloudflare Workers: redeploy the shared development environment from this checkout
+cf-deploy-dev:
+    npm run cf:deploy:dev

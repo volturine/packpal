@@ -1,5 +1,5 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { tripCollaborators, trips, users } from '$lib/server/schema';
 
 export interface AccessibleTripRecord {
@@ -22,7 +22,7 @@ export interface AccessibleTripRecord {
 }
 
 function getTripsWithOwners(where?: { ids?: string[] }) {
-	const baseQuery = db
+	const baseQuery = getDb()
 		.select({
 			id: trips.id,
 			userId: trips.userId,
@@ -50,42 +50,41 @@ function getTripsWithOwners(where?: { ids?: string[] }) {
 	return baseQuery.all();
 }
 
-export function getAccessibleTripIds(userId: string) {
-	const ownedIds = db
+export async function getAccessibleTripIds(userId: string) {
+	const owned = await getDb()
 		.select({ id: trips.id })
 		.from(trips)
 		.where(eq(trips.userId, userId))
-		.all()
-		.map((trip) => trip.id);
+		.all();
 
-	const sharedIds = db
+	const shared = await getDb()
 		.select({ tripId: tripCollaborators.tripId })
 		.from(tripCollaborators)
 		.where(eq(tripCollaborators.userId, userId))
-		.all()
-		.map((row) => row.tripId);
+		.all();
 
-	return [...new Set([...ownedIds, ...sharedIds])];
+	return [...new Set([...owned.map((trip) => trip.id), ...shared.map((row) => row.tripId)])];
 }
 
-export function getAccessibleTrips(userId: string): AccessibleTripRecord[] {
-	const accessibleIds = getAccessibleTripIds(userId);
+export async function getAccessibleTrips(userId: string): Promise<AccessibleTripRecord[]> {
+	const accessibleIds = await getAccessibleTripIds(userId);
 	if (accessibleIds.length === 0) return [];
 
-	return getTripsWithOwners({ ids: accessibleIds }).map((trip) => ({
+	const accessibleTrips = await getTripsWithOwners({ ids: accessibleIds });
+	return accessibleTrips.map((trip) => ({
 		...trip,
 		isShared: trip.userId !== userId
 	}));
 }
 
-export function getAccessibleTripById(userId: string, tripId: string) {
-	const trip = getTripsWithOwners({ ids: [tripId] })[0];
+export async function getAccessibleTripById(userId: string, tripId: string) {
+	const [trip] = await getTripsWithOwners({ ids: [tripId] });
 	if (!trip) return null;
 
 	const isOwner = trip.userId === userId;
 	if (isOwner) return { ...trip, isShared: false };
 
-	const collaboration = db
+	const collaboration = await getDb()
 		.select({ id: tripCollaborators.id })
 		.from(tripCollaborators)
 		.where(and(eq(tripCollaborators.tripId, tripId), eq(tripCollaborators.userId, userId)))
@@ -96,7 +95,7 @@ export function getAccessibleTripById(userId: string, tripId: string) {
 }
 
 export function getTripCollaborators(tripId: string) {
-	return db
+	return getDb()
 		.select({
 			id: tripCollaborators.id,
 			tripId: tripCollaborators.tripId,

@@ -8,15 +8,14 @@ const helpers = vi.hoisted(() => {
 
 vi.mock('$lib/server/db', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { TEST_DDL } = await import('./test-db-helpers');
-	const { drizzle } = await import('drizzle-orm/better-sqlite3');
+	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
-	sqlite.exec(TEST_DDL);
+	applyMigrations(sqlite);
 	helpers.sqliteRef = sqlite;
 
-	return { db: drizzle({ client: sqlite }) };
+	return { getDb: () => createSqliteDb(sqlite) };
 });
 
 // Import AFTER mock declaration
@@ -84,8 +83,8 @@ describe('verifyPassword', () => {
 });
 
 describe('createUser', () => {
-	it('creates a user and returns correct shape', () => {
-		const user = createUser('testuser', 'password123', 'Test User');
+	it('creates a user and returns correct shape', async () => {
+		const user = await createUser('testuser', 'password123', 'Test User');
 		expect(user).toHaveProperty('id');
 		expect(user.username).toBe('testuser');
 		expect(user.displayName).toBe('Test User');
@@ -93,14 +92,14 @@ describe('createUser', () => {
 		expect(user.id.length).toBeGreaterThan(0);
 	});
 
-	it('creates users with unique IDs', () => {
-		const user1 = createUser('user1', 'pass1', 'User One');
-		const user2 = createUser('user2', 'pass2', 'User Two');
+	it('creates users with unique IDs', async () => {
+		const user1 = await createUser('user1', 'pass1', 'User One');
+		const user2 = await createUser('user2', 'pass2', 'User Two');
 		expect(user1.id).not.toBe(user2.id);
 	});
 
-	it('stores password hash (not plaintext)', () => {
-		createUser('testuser', 'secretpass', 'Test');
+	it('stores password hash (not plaintext)', async () => {
+		await createUser('testuser', 'secretpass', 'Test');
 		const row = helpers
 			.sqliteRef!.prepare('SELECT password_hash FROM users WHERE username = ?')
 			.get('testuser') as { password_hash: string };
@@ -110,16 +109,16 @@ describe('createUser', () => {
 });
 
 describe('createSession', () => {
-	it('creates a session and returns session ID', () => {
-		const user = createUser('testuser', 'pass', 'Test');
-		const sessionId = createSession(user.id);
+	it('creates a session and returns session ID', async () => {
+		const user = await createUser('testuser', 'pass', 'Test');
+		const sessionId = await createSession(user.id);
 		expect(typeof sessionId).toBe('string');
 		expect(sessionId.length).toBeGreaterThan(0);
 	});
 
-	it('creates sessions with future expiry', () => {
-		const user = createUser('testuser', 'pass', 'Test');
-		const sessionId = createSession(user.id);
+	it('creates sessions with future expiry', async () => {
+		const user = await createUser('testuser', 'pass', 'Test');
+		const sessionId = await createSession(user.id);
 		const row = helpers
 			.sqliteRef!.prepare('SELECT expires_at FROM sessions WHERE id = ?')
 			.get(sessionId) as { expires_at: number };
@@ -128,30 +127,30 @@ describe('createSession', () => {
 });
 
 describe('validateSession', () => {
-	it('returns user data for valid session', () => {
-		const user = createUser('testuser', 'pass', 'Test User');
-		const sessionId = createSession(user.id);
-		const result = validateSession(sessionId);
+	it('returns user data for valid session', async () => {
+		const user = await createUser('testuser', 'pass', 'Test User');
+		const sessionId = await createSession(user.id);
+		const result = await validateSession(sessionId);
 		expect(result).not.toBeNull();
 		expect(result!.userId).toBe(user.id);
 		expect(result!.username).toBe('testuser');
 		expect(result!.displayName).toBe('Test User');
 	});
 
-	it('returns null for non-existent session', () => {
-		expect(validateSession('nonexistent')).toBeNull();
+	it('returns null for non-existent session', async () => {
+		expect(await validateSession('nonexistent')).toBeNull();
 	});
 
-	it('returns null and deletes expired session', () => {
-		const user = createUser('testuser', 'pass', 'Test');
-		const sessionId = createSession(user.id);
+	it('returns null and deletes expired session', async () => {
+		const user = await createUser('testuser', 'pass', 'Test');
+		const sessionId = await createSession(user.id);
 
 		// Manually expire the session
 		helpers
 			.sqliteRef!.prepare('UPDATE sessions SET expires_at = ? WHERE id = ?')
 			.run(Date.now() - 1000, sessionId);
 
-		const result = validateSession(sessionId);
+		const result = await validateSession(sessionId);
 		expect(result).toBeNull();
 
 		// Session should be deleted
@@ -161,17 +160,17 @@ describe('validateSession', () => {
 });
 
 describe('deleteSession', () => {
-	it('removes the session from the database', () => {
-		const user = createUser('testuser', 'pass', 'Test');
-		const sessionId = createSession(user.id);
+	it('removes the session from the database', async () => {
+		const user = await createUser('testuser', 'pass', 'Test');
+		const sessionId = await createSession(user.id);
 
-		deleteSession(sessionId);
+		await deleteSession(sessionId);
 
 		const row = helpers.sqliteRef!.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId);
 		expect(row).toBeUndefined();
 	});
 
-	it('does not throw for non-existent session', () => {
-		expect(() => deleteSession('nonexistent')).not.toThrow();
+	it('does not throw for non-existent session', async () => {
+		await deleteSession('nonexistent');
 	});
 });

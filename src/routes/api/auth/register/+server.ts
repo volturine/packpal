@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createUser, createSession, setSessionCookie } from '$lib/server/auth';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { users } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { rateLimitByIp } from '$lib/server/rate-limit';
@@ -38,13 +38,17 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'Password must be at least 6 characters' }, { status: 400 });
 	}
 
-	const existing = db.select().from(users).where(eq(users.username, sanitizedUsername)).get();
+	const existing = await getDb()
+		.select()
+		.from(users)
+		.where(eq(users.username, sanitizedUsername))
+		.get();
 	if (existing) {
 		return json({ error: 'Username already taken' }, { status: 409 });
 	}
 
-	const user = createUser(sanitizedUsername, password, sanitizedDisplayName);
-	const sessionId = createSession(user.id);
+	const user = await createUser(sanitizedUsername, password, sanitizedDisplayName);
+	const sessionId = await createSession(user.id);
 	setSessionCookie(event, sessionId);
 
 	return json({ user: { id: user.id, username: user.username, displayName: user.displayName } });

@@ -8,15 +8,14 @@ const helpers = vi.hoisted(() => {
 
 vi.mock('$lib/server/db', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { TEST_DDL } = await import('./test-db-helpers');
-	const { drizzle } = await import('drizzle-orm/better-sqlite3');
+	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
-	sqlite.exec(TEST_DDL);
+	applyMigrations(sqlite);
 	helpers.sqliteRef = sqlite;
 
-	return { db: drizzle({ client: sqlite }) };
+	return { getDb: () => createSqliteDb(sqlite) };
 });
 
 // Import AFTER mock declaration
@@ -75,21 +74,21 @@ function seedBasicData() {
 }
 
 describe('getAccessibleTripIds', () => {
-	it('returns owned trip IDs', () => {
+	it('returns owned trip IDs', async () => {
 		seedBasicData();
-		const ids = getAccessibleTripIds('owner');
+		const ids = await getAccessibleTripIds('owner');
 		expect(ids).toContain('trip-1');
 		expect(ids).toContain('trip-2');
 	});
 
-	it('returns shared trip IDs', () => {
+	it('returns shared trip IDs', async () => {
 		seedBasicData();
-		const ids = getAccessibleTripIds('collab');
+		const ids = await getAccessibleTripIds('collab');
 		expect(ids).toContain('trip-1');
 		expect(ids).not.toContain('trip-2');
 	});
 
-	it('returns combined owned + shared IDs (deduplicated)', () => {
+	it('returns combined owned + shared IDs (deduplicated)', async () => {
 		seedBasicData();
 		// Owner is also a collaborator (edge case) - create a trip owned by collab, shared with owner
 		insertTestTrip(helpers.sqliteRef!, {
@@ -107,7 +106,7 @@ describe('getAccessibleTripIds', () => {
 			invitedByUserId: 'collab'
 		});
 
-		const ids = getAccessibleTripIds('owner');
+		const ids = await getAccessibleTripIds('owner');
 		expect(ids).toContain('trip-1');
 		expect(ids).toContain('trip-2');
 		expect(ids).toContain('trip-3');
@@ -115,43 +114,43 @@ describe('getAccessibleTripIds', () => {
 		expect(new Set(ids).size).toBe(ids.length);
 	});
 
-	it('returns empty array for user with no trips', () => {
+	it('returns empty array for user with no trips', async () => {
 		seedBasicData();
-		const ids = getAccessibleTripIds('other');
+		const ids = await getAccessibleTripIds('other');
 		expect(ids).toEqual([]);
 	});
 });
 
 describe('getAccessibleTrips', () => {
-	it('returns trips with isShared flag for owner', () => {
+	it('returns trips with isShared flag for owner', async () => {
 		seedBasicData();
-		const trips = getAccessibleTrips('owner');
+		const trips = await getAccessibleTrips('owner');
 		expect(trips.length).toBe(2);
 		expect(trips.every((t) => t.isShared === false)).toBe(true);
 	});
 
-	it('returns shared trip with isShared=true for collaborator', () => {
+	it('returns shared trip with isShared=true for collaborator', async () => {
 		seedBasicData();
-		const trips = getAccessibleTrips('collab');
+		const trips = await getAccessibleTrips('collab');
 		expect(trips.length).toBe(1);
 		expect(trips[0].isShared).toBe(true);
 		expect(trips[0].id).toBe('trip-1');
 	});
 
-	it('includes owner display name', () => {
+	it('includes owner display name', async () => {
 		seedBasicData();
-		const trips = getAccessibleTrips('collab');
+		const trips = await getAccessibleTrips('collab');
 		expect(trips[0].ownerDisplayName).toBe('Trip Owner');
 	});
 
-	it('returns empty array for user with no access', () => {
+	it('returns empty array for user with no access', async () => {
 		seedBasicData();
-		expect(getAccessibleTrips('other')).toEqual([]);
+		expect(await getAccessibleTrips('other')).toEqual([]);
 	});
 
-	it('returns correct trip fields', () => {
+	it('returns correct trip fields', async () => {
 		seedBasicData();
-		const trips = getAccessibleTrips('owner');
+		const trips = await getAccessibleTrips('owner');
 		const trip = trips.find((t) => t.id === 'trip-1')!;
 
 		expect(trip.name).toBe('Paris Trip');
@@ -163,43 +162,43 @@ describe('getAccessibleTrips', () => {
 });
 
 describe('getAccessibleTripById', () => {
-	it('returns trip for owner', () => {
+	it('returns trip for owner', async () => {
 		seedBasicData();
-		const trip = getAccessibleTripById('owner', 'trip-1');
+		const trip = await getAccessibleTripById('owner', 'trip-1');
 		expect(trip).not.toBeNull();
 		expect(trip!.id).toBe('trip-1');
 		expect(trip!.isShared).toBe(false);
 	});
 
-	it('returns trip for collaborator with isShared=true', () => {
+	it('returns trip for collaborator with isShared=true', async () => {
 		seedBasicData();
-		const trip = getAccessibleTripById('collab', 'trip-1');
+		const trip = await getAccessibleTripById('collab', 'trip-1');
 		expect(trip).not.toBeNull();
 		expect(trip!.id).toBe('trip-1');
 		expect(trip!.isShared).toBe(true);
 	});
 
-	it('returns null for non-accessible trip', () => {
+	it('returns null for non-accessible trip', async () => {
 		seedBasicData();
-		expect(getAccessibleTripById('other', 'trip-1')).toBeNull();
+		expect(await getAccessibleTripById('other', 'trip-1')).toBeNull();
 	});
 
-	it('returns null for non-existent trip', () => {
+	it('returns null for non-existent trip', async () => {
 		seedBasicData();
-		expect(getAccessibleTripById('owner', 'nonexistent')).toBeNull();
+		expect(await getAccessibleTripById('owner', 'nonexistent')).toBeNull();
 	});
 
-	it('does not allow collaborator to access unshared trips', () => {
+	it('does not allow collaborator to access unshared trips', async () => {
 		seedBasicData();
 		// trip-2 is owned by owner, not shared with collab
-		expect(getAccessibleTripById('collab', 'trip-2')).toBeNull();
+		expect(await getAccessibleTripById('collab', 'trip-2')).toBeNull();
 	});
 });
 
 describe('getTripCollaborators', () => {
-	it('returns collaborators with user info', () => {
+	it('returns collaborators with user info', async () => {
 		seedBasicData();
-		const collabs = getTripCollaborators('trip-1');
+		const collabs = await getTripCollaborators('trip-1');
 		expect(collabs).toHaveLength(1);
 		expect(collabs[0].userId).toBe('collab');
 		expect(collabs[0].username).toBe('collab');
@@ -208,12 +207,12 @@ describe('getTripCollaborators', () => {
 		expect(collabs[0].invitedByUserId).toBe('owner');
 	});
 
-	it('returns empty array for trip with no collaborators', () => {
+	it('returns empty array for trip with no collaborators', async () => {
 		seedBasicData();
-		expect(getTripCollaborators('trip-2')).toEqual([]);
+		expect(await getTripCollaborators('trip-2')).toEqual([]);
 	});
 
-	it('returns multiple collaborators', () => {
+	it('returns multiple collaborators', async () => {
 		seedBasicData();
 		insertTestCollaborator(helpers.sqliteRef!, {
 			id: 'collab-3',
@@ -222,7 +221,7 @@ describe('getTripCollaborators', () => {
 			invitedByUserId: 'owner'
 		});
 
-		const collabs = getTripCollaborators('trip-1');
+		const collabs = await getTripCollaborators('trip-1');
 		expect(collabs).toHaveLength(2);
 		const userIds = collabs.map((c) => c.userId);
 		expect(userIds).toContain('collab');

@@ -8,15 +8,14 @@ const helpers = vi.hoisted(() => {
 
 vi.mock('$lib/server/db', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { TEST_DDL } = await import('$lib/server/test-db-helpers');
-	const { drizzle } = await import('drizzle-orm/better-sqlite3');
+	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
-	sqlite.exec(TEST_DDL);
+	applyMigrations(sqlite);
 	helpers.sqliteRef = sqlite;
 
-	return { db: drizzle({ client: sqlite }) };
+	return { getDb: () => createSqliteDb(sqlite) };
 });
 
 import { GET, POST } from './+server';
@@ -37,7 +36,7 @@ beforeEach(() => {
 const NOW = Date.now();
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 
-function createAuthEvent(opts: {
+async function createAuthEvent(opts: {
 	method?: string;
 	body?: Record<string, unknown>;
 	url?: string;
@@ -55,7 +54,7 @@ function createAuthEvent(opts: {
 				displayName: `User ${opts.sessionUserId}`
 			});
 		}
-		sessionId = createSession(opts.sessionUserId);
+		sessionId = await createSession(opts.sessionUserId);
 	}
 
 	const cookieStore: Record<string, string> = {};
@@ -110,7 +109,7 @@ function seedTrip() {
 
 describe('GET /api/chat-messages', () => {
 	it('returns 401 when not authenticated', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'GET',
 			url: 'http://localhost/api/chat-messages?tripId=trip-1'
 		});
@@ -119,7 +118,7 @@ describe('GET /api/chat-messages', () => {
 	});
 
 	it('returns 400 without tripId', async () => {
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'GET',
 			sessionUserId: 'user-1',
 			url: 'http://localhost/api/chat-messages'
@@ -131,7 +130,7 @@ describe('GET /api/chat-messages', () => {
 	it('returns empty messages for new trip', async () => {
 		seedTrip();
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'GET',
 			sessionUserId: 'user-1',
 			url: 'http://localhost/api/chat-messages?tripId=trip-1'
@@ -151,7 +150,7 @@ describe('GET /api/chat-messages', () => {
 			displayName: 'Bob'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'GET',
 			sessionUserId: 'user-2',
 			url: 'http://localhost/api/chat-messages?tripId=trip-1'
@@ -165,7 +164,7 @@ describe('POST /api/chat-messages', () => {
 	it('adds a message', async () => {
 		seedTrip();
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: {
@@ -191,7 +190,7 @@ describe('POST /api/chat-messages', () => {
 	it('rejects messages with missing fields', async () => {
 		seedTrip();
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-1',
 			body: { tripId: 'trip-1' }
@@ -208,7 +207,7 @@ describe('POST /api/chat-messages', () => {
 			displayName: 'Bob'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-2',
 			body: { tripId: 'trip-1', role: 'user', content: 'Hello' }
@@ -231,7 +230,7 @@ describe('POST /api/chat-messages', () => {
 			invitedByUserId: 'user-1'
 		});
 
-		const event = createAuthEvent({
+		const event = await createAuthEvent({
 			method: 'POST',
 			sessionUserId: 'user-2',
 			body: { tripId: 'trip-1', role: 'user', content: 'Hello from collaborator' }

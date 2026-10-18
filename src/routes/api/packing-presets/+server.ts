@@ -1,17 +1,17 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSessionFromCookies } from '$lib/server/auth';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { packingItems, packingPresets } from '$lib/server/schema';
 import { desc, eq } from 'drizzle-orm';
 import { getAccessibleTripById } from '$lib/server/trip-access';
 import { generateId, sanitizeText } from '$lib/server/utils';
 
 export const GET: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
-	const presets = db
+	const presets = await getDb()
 		.select()
 		.from(packingPresets)
 		.where(eq(packingPresets.userId, session.userId))
@@ -22,17 +22,17 @@ export const GET: RequestHandler = async (event) => {
 };
 
 export const POST: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const body = await event.request.json();
 
 	if (body.action === 'saveFromTrip') {
 		const { tripId, name } = body as { tripId: string; name: string };
-		const trip = getAccessibleTripById(session.userId, tripId);
+		const trip = await getAccessibleTripById(session.userId, tripId);
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-		const items = db
+		const items = await getDb()
 			.select({
 				name: packingItems.name,
 				category: packingItems.category,
@@ -45,7 +45,8 @@ export const POST: RequestHandler = async (event) => {
 			.all();
 
 		const presetId = generateId();
-		db.insert(packingPresets)
+		await getDb()
+			.insert(packingPresets)
 			.values({
 				id: presetId,
 				userId: session.userId,
@@ -75,7 +76,8 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const id = generateId();
-	db.insert(packingPresets)
+	await getDb()
+		.insert(packingPresets)
 		.values({
 			id,
 			userId: session.userId,
@@ -90,19 +92,20 @@ export const POST: RequestHandler = async (event) => {
 };
 
 export const PATCH: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const { id, action } = (await event.request.json()) as { id: string; action?: string };
 	if (!id) return json({ error: 'Preset ID required' }, { status: 400 });
 
-	const preset = db.select().from(packingPresets).where(eq(packingPresets.id, id)).get();
+	const preset = await getDb().select().from(packingPresets).where(eq(packingPresets.id, id)).get();
 	if (!preset || preset.userId !== session.userId) {
 		return json({ error: 'Preset not found' }, { status: 404 });
 	}
 
 	if (action === 'markUsed') {
-		db.update(packingPresets)
+		await getDb()
+			.update(packingPresets)
 			.set({ lastUsedAt: Date.now() })
 			.where(eq(packingPresets.id, id))
 			.run();
@@ -113,17 +116,17 @@ export const PATCH: RequestHandler = async (event) => {
 };
 
 export const DELETE: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const { id } = (await event.request.json()) as { id: string };
 	if (!id) return json({ error: 'Preset ID required' }, { status: 400 });
 
-	const preset = db.select().from(packingPresets).where(eq(packingPresets.id, id)).get();
+	const preset = await getDb().select().from(packingPresets).where(eq(packingPresets.id, id)).get();
 	if (!preset || preset.userId !== session.userId) {
 		return json({ error: 'Preset not found' }, { status: 404 });
 	}
 
-	db.delete(packingPresets).where(eq(packingPresets.id, id)).run();
+	await getDb().delete(packingPresets).where(eq(packingPresets.id, id)).run();
 	return json({ ok: true });
 };

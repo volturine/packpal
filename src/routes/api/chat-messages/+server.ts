@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSessionFromCookies } from '$lib/server/auth';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { chatMessages } from '$lib/server/schema';
 import { and, eq, lt, desc } from 'drizzle-orm';
 import { getAccessibleTripById } from '$lib/server/trip-access';
@@ -11,13 +11,13 @@ const PAGE_SIZE = 50;
 
 // GET /api/chat-messages?tripId=xxx&before=timestamp&limit=50
 export const GET: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const tripId = event.url.searchParams.get('tripId');
 	if (!tripId) return json({ error: 'tripId required' }, { status: 400 });
 
-	const trip = getAccessibleTripById(session.userId, tripId);
+	const trip = await getAccessibleTripById(session.userId, tripId);
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
 	const before = event.url.searchParams.get('before');
@@ -28,7 +28,7 @@ export const GET: RequestHandler = async (event) => {
 		conditions.push(lt(chatMessages.createdAt, Number(before)));
 	}
 
-	const messages = db
+	const messages = await getDb()
 		.select()
 		.from(chatMessages)
 		.where(and(...conditions))
@@ -44,7 +44,7 @@ export const GET: RequestHandler = async (event) => {
 
 // POST /api/chat-messages - add a message
 export const POST: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const body = await event.request.json();
@@ -58,11 +58,12 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'tripId, role, and content required' }, { status: 400 });
 	}
 
-	const trip = getAccessibleTripById(session.userId, tripId);
+	const trip = await getAccessibleTripById(session.userId, tripId);
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
 	const id = generateId();
-	db.insert(chatMessages)
+	await getDb()
+		.insert(chatMessages)
 		.values({
 			id,
 			tripId,

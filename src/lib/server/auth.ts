@@ -1,5 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { db } from './db';
+import { dev } from '$app/environment';
+import { getDb } from '$lib/server/db';
 import { sessions, users } from './schema';
 import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
@@ -18,10 +19,11 @@ export function verifyPassword(password: string, stored: string): boolean {
 	return timingSafeEqual(hashBuffer, derivedKey);
 }
 
-export function createUser(username: string, password: string, displayName: string) {
+export async function createUser(username: string, password: string, displayName: string) {
 	const id = generateId();
 	const passwordHash = hashPassword(password);
-	db.insert(users)
+	await getDb()
+		.insert(users)
 		.values({
 			id,
 			username,
@@ -33,15 +35,15 @@ export function createUser(username: string, password: string, displayName: stri
 	return { id, username, displayName };
 }
 
-export function createSession(userId: string): string {
+export async function createSession(userId: string): Promise<string> {
 	const id = generateId();
 	const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
-	db.insert(sessions).values({ id, userId, expiresAt }).run();
+	await getDb().insert(sessions).values({ id, userId, expiresAt }).run();
 	return id;
 }
 
-export function validateSession(sessionId: string) {
-	const result = db
+export async function validateSession(sessionId: string) {
+	const result = await getDb()
 		.select({
 			sessionId: sessions.id,
 			userId: sessions.userId,
@@ -56,7 +58,7 @@ export function validateSession(sessionId: string) {
 
 	if (!result || result.expiresAt < Date.now()) {
 		if (result) {
-			db.delete(sessions).where(eq(sessions.id, sessionId)).run();
+			await getDb().delete(sessions).where(eq(sessions.id, sessionId)).run();
 		}
 		return null;
 	}
@@ -68,8 +70,8 @@ export function validateSession(sessionId: string) {
 	};
 }
 
-export function deleteSession(sessionId: string) {
-	db.delete(sessions).where(eq(sessions.id, sessionId)).run();
+export async function deleteSession(sessionId: string) {
+	await getDb().delete(sessions).where(eq(sessions.id, sessionId)).run();
 }
 
 const SESSION_COOKIE = 'packpal_session';
@@ -79,21 +81,22 @@ export function setSessionCookie(event: RequestEvent, sessionId: string) {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: process.env.NODE_ENV === 'production',
+		// Every production build (Node behind TLS, Cloudflare) serves over HTTPS.
+		secure: !dev,
 		maxAge: 30 * 24 * 60 * 60 // 30 days
 	});
 }
 
-export function getSessionFromCookies(event: RequestEvent) {
+export async function getSessionFromCookies(event: RequestEvent) {
 	const sessionId = event.cookies.get(SESSION_COOKIE);
 	if (!sessionId) return null;
 	return validateSession(sessionId);
 }
 
-export function clearSessionCookie(event: RequestEvent) {
+export async function clearSessionCookie(event: RequestEvent) {
 	const sessionId = event.cookies.get(SESSION_COOKIE);
 	if (sessionId) {
-		deleteSession(sessionId);
+		await deleteSession(sessionId);
 	}
 	event.cookies.delete(SESSION_COOKIE, { path: '/' });
 }

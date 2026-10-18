@@ -1,0 +1,3 @@
+# Secrets for `npm run cf:dev` (wrangler dev). Copy to .dev.vars; never commit it.
+# Optional: only the AI chat assistant needs it.
+OPENROUTER_API_KEY=...

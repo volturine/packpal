@@ -1,22 +1,23 @@
 import { desc, eq } from 'drizzle-orm';
 import { getTripInsightSummary } from '$lib/packing-insights';
 import type { PackingItem, Trip } from '$lib/types';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { packingItems } from '$lib/server/schema';
 import { getTripCollaborators, type AccessibleTripRecord } from '$lib/server/trip-access';
 
-export function getTripItems(tripId: string) {
-	return db
+export async function getTripItems(tripId: string) {
+	const items = await getDb()
 		.select()
 		.from(packingItems)
 		.where(eq(packingItems.tripId, tripId))
 		.orderBy(desc(packingItems.packed), packingItems.category, packingItems.name)
-		.all() as PackingItem[];
+		.all();
+	return items as PackingItem[];
 }
 
-export function enrichTrip(trip: AccessibleTripRecord, viewerUserId: string) {
-	const items = getTripItems(trip.id);
-	const collaborators = getTripCollaborators(trip.id);
+export async function enrichTrip(trip: AccessibleTripRecord, viewerUserId: string) {
+	const items = await getTripItems(trip.id);
+	const collaborators = await getTripCollaborators(trip.id);
 	const tripRecord = trip as Trip;
 	const insights = getTripInsightSummary(tripRecord, items);
 

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSessionFromCookies } from '$lib/server/auth';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { chatMessages, packingItems, tripCollaborators, trips, users } from '$lib/server/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPackingListForTrip, type Climate } from '$lib/data/packing-templates';
@@ -11,45 +11,53 @@ import { generateId, sanitizeText } from '$lib/server/utils';
 
 // GET /api/trips - list all trips for current user
 export const GET: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
-	const accessibleTrips = getAccessibleTrips(session.userId)
-		.sort((a, b) => b.createdAt - a.createdAt)
-		.map((trip) => enrichTrip(trip, session.userId));
+	const sortedTrips = (await getAccessibleTrips(session.userId)).sort(
+		(a, b) => b.createdAt - a.createdAt
+	);
+	const accessibleTrips = await Promise.all(
+		sortedTrips.map((trip) => enrichTrip(trip, session.userId))
+	);
 
 	return json(accessibleTrips);
 };
 
 // POST /api/trips - create a new trip or collaborator/preset action
 export const POST: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const body = await event.request.json();
 
 	if (body.action === 'addCollaborator') {
 		const { tripId, username } = body as { tripId: string; username: string };
-		const trip = db
+		const trip = await getDb()
 			.select()
 			.from(trips)
 			.where(and(eq(trips.id, tripId), eq(trips.userId, session.userId)))
 			.get();
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-		const user = db.select().from(users).where(eq(users.username, username.trim())).get();
+		const user = await getDb()
+			.select()
+			.from(users)
+			.where(eq(users.username, username.trim()))
+			.get();
 		if (!user) return json({ error: 'User not found' }, { status: 404 });
 		if (user.id === session.userId)
 			return json({ error: 'You already own this trip' }, { status: 400 });
 
-		const existing = db
+		const existing = await getDb()
 			.select()
 			.from(tripCollaborators)
 			.where(and(eq(tripCollaborators.tripId, tripId), eq(tripCollaborators.userId, user.id)))
 			.get();
 		if (existing) return json({ error: 'Collaborator already added' }, { status: 400 });
 
-		db.insert(tripCollaborators)
+		await getDb()
+			.insert(tripCollaborators)
 			.values({
 				id: generateId(),
 				tripId,
@@ -80,7 +88,8 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const id = generateId();
-	db.insert(trips)
+	await getDb()
+		.insert(trips)
 		.values({
 			id,
 			userId: session.userId,
@@ -103,7 +112,7 @@ export const POST: RequestHandler = async (event) => {
 
 // PATCH /api/trips - update a trip
 export const PATCH: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const body = await event.request.json();
@@ -111,16 +120,16 @@ export const PATCH: RequestHandler = async (event) => {
 
 	if (!id) return json({ error: 'Trip ID required' }, { status: 400 });
 
-	const trip = getAccessibleTripById(session.userId, id);
+	const trip = await getAccessibleTripById(session.userId, id);
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
 	if (action === 'archive') {
-		db.update(trips).set({ archivedAt: Date.now() }).where(eq(trips.id, id)).run();
+		await getDb().update(trips).set({ archivedAt: Date.now() }).where(eq(trips.id, id)).run();
 		return json({ ok: true });
 	}
 
 	if (action === 'unarchive') {
-		db.update(trips).set({ archivedAt: null }).where(eq(trips.id, id)).run();
+		await getDb().update(trips).set({ archivedAt: null }).where(eq(trips.id, id)).run();
 		return json({ ok: true });
 	}
 
@@ -143,7 +152,7 @@ export const PATCH: RequestHandler = async (event) => {
 		fields.activities !== undefined || fields.climate !== undefined;
 
 	if (Object.keys(updateFields).length > 0) {
-		db.update(trips).set(updateFields).where(eq(trips.id, id)).run();
+		await getDb().update(trips).set(updateFields).where(eq(trips.id, id)).run();
 	}
 
 	if (shouldRegeneratePackingList) {
@@ -152,18 +161,23 @@ export const PATCH: RequestHandler = async (event) => {
 			generatedItems.map((item) => [item.name.toLowerCase(), item] as const)
 		);
 
-		const existingItems = db.select().from(packingItems).where(eq(packingItems.tripId, id)).all();
+		const existingItems = await getDb()
+			.select()
+			.from(packingItems)
+			.where(eq(packingItems.tripId, id))
+			.all();
 
 		for (const item of existingItems) {
 			if (item.isCustom) continue;
 
 			const generated = remainingGenerated.get(item.name.toLowerCase());
 			if (!generated) {
-				db.delete(packingItems).where(eq(packingItems.id, item.id)).run();
+				await getDb().delete(packingItems).where(eq(packingItems.id, item.id)).run();
 				continue;
 			}
 
-			db.update(packingItems)
+			await getDb()
+				.update(packingItems)
 				.set({ category: generated.category, quantity: generated.quantity })
 				.where(eq(packingItems.id, item.id))
 				.run();
@@ -172,7 +186,8 @@ export const PATCH: RequestHandler = async (event) => {
 		}
 
 		for (const generated of remainingGenerated.values()) {
-			db.insert(packingItems)
+			await getDb()
+				.insert(packingItems)
 				.values({
 					id: generateId(),
 					tripId: id,
@@ -194,20 +209,21 @@ export const PATCH: RequestHandler = async (event) => {
 
 // DELETE /api/trips - delete trip or collaborator
 export const DELETE: RequestHandler = async (event) => {
-	const session = getSessionFromCookies(event);
+	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const body = (await event.request.json()) as { id?: string; collaboratorUserId?: string };
 
 	if (body.id && body.collaboratorUserId) {
-		const trip = db
+		const trip = await getDb()
 			.select()
 			.from(trips)
 			.where(and(eq(trips.id, body.id), eq(trips.userId, session.userId)))
 			.get();
 		if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-		db.delete(tripCollaborators)
+		await getDb()
+			.delete(tripCollaborators)
 			.where(
 				and(
 					eq(tripCollaborators.tripId, body.id),
@@ -222,17 +238,17 @@ export const DELETE: RequestHandler = async (event) => {
 	const { id } = body;
 	if (!id) return json({ error: 'Trip ID required' }, { status: 400 });
 
-	const trip = db
+	const trip = await getDb()
 		.select()
 		.from(trips)
 		.where(and(eq(trips.id, id), eq(trips.userId, session.userId)))
 		.get();
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-	db.delete(chatMessages).where(eq(chatMessages.tripId, id)).run();
-	db.delete(packingItems).where(eq(packingItems.tripId, id)).run();
-	db.delete(tripCollaborators).where(eq(tripCollaborators.tripId, id)).run();
-	db.delete(trips).where(eq(trips.id, id)).run();
+	await getDb().delete(chatMessages).where(eq(chatMessages.tripId, id)).run();
+	await getDb().delete(packingItems).where(eq(packingItems.tripId, id)).run();
+	await getDb().delete(tripCollaborators).where(eq(tripCollaborators.tripId, id)).run();
+	await getDb().delete(trips).where(eq(trips.id, id)).run();
 
 	return json({ ok: true });
 };
