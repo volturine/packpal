@@ -88,7 +88,8 @@ limit per user. Atomic SQLite/D1 reservations prevent concurrent overspending.
 
 Configure `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` in the matching GitHub
 environment or local secret file. Use a Stripe sandbox/test account for development;
-the development database is erased on each deployment and must never hold paid
+wallet purchases and usage are isolated by test/live mode even if a Node database
+is reused across modes. The development database is erased on each deployment and must never hold paid
 customer credit. Test-mode chat returns explicitly simulated responses and settles
 a simulated cost, so Stripe test money can never fund real inference. The app labels
 this mode visibly. Production uses live credentials and preserves its D1 database.

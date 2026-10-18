@@ -1,16 +1,12 @@
 import { env } from '$env/dynamic/private';
 import Stripe from 'stripe';
+import { getStripeMode, type StripeMode } from './billing-mode';
 
-export type StripeMode = 'test' | 'live';
+export { getStripeMode };
+export type { StripeMode };
 
 let stripeClient: Stripe | undefined;
 let stripeSecretKey: string | undefined;
-
-export function getStripeMode(): StripeMode | null {
-	const configuredMode = env.STRIPE_MODE;
-	const mode = configuredMode === undefined ? 'test' : configuredMode.trim();
-	return mode === 'test' || mode === 'live' ? mode : null;
-}
 
 function hasMatchingSecretKey(mode: StripeMode | null): boolean {
 	const key = env.STRIPE_SECRET_KEY?.trim();

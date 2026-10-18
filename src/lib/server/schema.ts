@@ -104,6 +104,9 @@ export const billingPurchases = sqliteTable('billing_purchases', {
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
+	mode: text('mode', { enum: ['test', 'live'] })
+		.notNull()
+		.default('test'),
 	amountCents: integer('amount_cents').notNull(),
 	currency: text('currency').notNull().default('usd'),
 	checkoutSessionId: text('checkout_session_id').unique(),
@@ -121,6 +124,9 @@ export const aiUsage = sqliteTable('ai_usage', {
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
+	mode: text('mode', { enum: ['test', 'live'] })
+		.notNull()
+		.default('test'),
 	tripId: text('trip_id').references(() => trips.id, { onDelete: 'set null' }),
 	reservedMicroUsd: integer('reserved_micro_usd').notNull(),
 	chargedMicroUsd: integer('charged_micro_usd'),

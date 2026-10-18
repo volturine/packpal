@@ -84,6 +84,13 @@
 		'What should I know about the destination and season?',
 		'What can I remove if I want to pack lighter?'
 	];
+	const uncertainRequestFeedback =
+		'Unable to confirm whether the AI request completed. Check your credit history before submitting another request.';
+	const knownStreamErrors = [
+		'The AI provider could not complete this response.',
+		'Usage confirmation is pending. Check your credit history before retrying.',
+		'The response was interrupted. Its credit hold will be reconciled when usage is confirmed.'
+	];
 
 	function scrollToBottom() {
 		if (!chatContainer) return;
@@ -157,6 +164,7 @@
 	async function sendMessage(text?: string) {
 		const content = (text ?? inputText).trim();
 		if (!content || streaming || !trip || !canUseAi) return;
+		let aiRequestStarted = false;
 
 		inputText = '';
 		streaming = true;
@@ -186,15 +194,17 @@
 				role: message.role,
 				content: message.content
 			}));
+			const requestId = createBillingRequestId();
+			aiRequestStarted = true;
 			const response = await fetch('/api/chat', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ tripId, requestId: createBillingRequestId(), messages: chatHistory })
+				body: JSON.stringify({ tripId, requestId, messages: chatHistory })
 			});
 
 			if (!response.ok) {
-				chatFeedback = 'Unable to get an AI response. Please try again.';
-				if ([400, 402, 404, 409, 413, 422, 429, 503].includes(response.status)) {
+				chatFeedback = uncertainRequestFeedback;
+				if ([400, 402, 404, 409, 413, 422, 429, 502, 503].includes(response.status)) {
 					try {
 						const errData: { error?: unknown } = await response.json();
 						if (typeof errData.error === 'string') chatFeedback = errData.error;
@@ -207,7 +217,7 @@
 
 			const reader = response.body?.getReader();
 			if (!reader) {
-				chatFeedback = 'The AI response could not be read. Please try again.';
+				chatFeedback = uncertainRequestFeedback;
 				return;
 			}
 
@@ -231,9 +241,9 @@
 						const parsed: { content?: unknown; error?: unknown } = JSON.parse(payload);
 						if (parsed.error !== undefined) {
 							chatFeedback =
-								typeof parsed.error === 'string'
+								typeof parsed.error === 'string' && knownStreamErrors.includes(parsed.error)
 									? parsed.error
-									: 'The AI response could not be completed. Please try again.';
+									: uncertainRequestFeedback;
 							await reader.cancel().catch(() => {});
 							return;
 						}
@@ -249,7 +259,9 @@
 
 			if (streamedContent) await saveAssistantMessage(streamedContent);
 		} catch {
-			chatFeedback = 'Unable to connect to the AI assistant. Please try again.';
+			chatFeedback = aiRequestStarted
+				? uncertainRequestFeedback
+				: 'Unable to connect to the AI assistant. Please try again.';
 		} finally {
 			streaming = false;
 			streamedContent = '';
@@ -442,13 +454,19 @@
 				{/if}
 
 				{#if chatFeedback}
-					<p
+					<div
 						class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
 						role="alert"
 						aria-live="assertive"
 					>
-						{chatFeedback}
-					</p>
+						<span>{chatFeedback}</span>
+						<a
+							href="/app/billing"
+							class="ml-2 inline-block font-semibold underline underline-offset-2"
+						>
+							View credit history
+						</a>
+					</div>
 				{/if}
 
 				{#if displayMessages.length === 0}

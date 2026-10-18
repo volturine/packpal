@@ -6,7 +6,14 @@ const fixture = vi.hoisted(() => ({
 	configured: true,
 	mode: 'live' as 'test' | 'live'
 }));
-vi.mock('$env/dynamic/private', () => ({ env: { OPENROUTER_API_KEY: 'fixture' } }));
+vi.mock('$env/dynamic/private', () => ({
+	env: {
+		OPENROUTER_API_KEY: 'fixture',
+		get STRIPE_MODE() {
+			return fixture.mode;
+		}
+	}
+}));
 vi.mock('$lib/server/stripe', () => ({
 	isStripeConfigured: () => fixture.configured,
 	getStripeMode: () => fixture.mode
@@ -150,13 +157,20 @@ describe('paid AI boundary', () => {
 		expect((await getWallet('u1')).heldMicroUsd).toBe(0);
 	});
 	it('never calls the real provider with Stripe test credit', async () => {
-		await fund();
 		fixture.mode = 'test';
+		await fund();
 		const response = await POST(event());
 		expect(response.status).toBe(200);
 		expect(await response.text()).toContain('Test response only');
 		expect(provider).not.toHaveBeenCalled();
 		expect((await getWallet('u1')).balanceMicroUsd).toBe(4_994_000);
+	});
+	it('cannot spend test credit on a live provider after a mode switch', async () => {
+		fixture.mode = 'test';
+		await fund();
+		fixture.mode = 'live';
+		expect((await POST(event())).status).toBe(402);
+		expect(provider).not.toHaveBeenCalled();
 	});
 	it('does not issue the same request twice', async () => {
 		await fund();

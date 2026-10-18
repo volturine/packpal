@@ -9,6 +9,7 @@ import {
 } from '$lib/billing';
 import { getDb } from '$lib/server/db';
 import { aiUsage, billingPurchases, users } from '$lib/server/schema';
+import { requireStripeMode, type StripeMode } from '$lib/server/billing-mode';
 
 type Purchase = typeof billingPurchases.$inferSelect;
 
@@ -30,23 +31,23 @@ function assertNonNegativeSafeInteger(value: number, name: string): void {
 	}
 }
 
-function balanceExpression(userId: string) {
+function balanceExpression(userId: string, mode: StripeMode) {
 	return sql<number>`
 		COALESCE((
 			SELECT SUM(credited_micro_usd)
 			FROM billing_purchases
-			WHERE user_id = ${userId} AND currency = ${BILLING_CURRENCY}
+			WHERE user_id = ${userId} AND mode = ${mode} AND currency = ${BILLING_CURRENCY}
 		), 0) - COALESCE((
 			SELECT SUM(COALESCE(charged_micro_usd, reserved_micro_usd))
 			FROM ai_usage
-			WHERE user_id = ${userId}
+			WHERE user_id = ${userId} AND mode = ${mode}
 		), 0)
 	`;
 }
 
-async function getBalanceMicroUsd(userId: string): Promise<number> {
+async function getBalanceMicroUsd(userId: string, mode: StripeMode): Promise<number> {
 	const [row] = await getDb()
-		.select({ balanceMicroUsd: balanceExpression(userId) })
+		.select({ balanceMicroUsd: balanceExpression(userId, mode) })
 		.from(users)
 		.where(eq(users.id, userId))
 		.limit(1);
@@ -54,14 +55,15 @@ async function getBalanceMicroUsd(userId: string): Promise<number> {
 }
 
 export async function getWallet(userId: string) {
+	const mode = requireStripeMode();
 	const db = getDb();
 	const [totals] = await db
 		.select({
-			balanceMicroUsd: balanceExpression(userId),
+			balanceMicroUsd: balanceExpression(userId, mode),
 			heldMicroUsd: sql<number>`COALESCE((
 				SELECT SUM(reserved_micro_usd)
 				FROM ai_usage
-				WHERE user_id = ${userId} AND charged_micro_usd IS NULL
+				WHERE user_id = ${userId} AND mode = ${mode} AND charged_micro_usd IS NULL
 			), 0)`
 		})
 		.from(users)
@@ -79,7 +81,7 @@ export async function getWallet(userId: string) {
 			disputeStatus: billingPurchases.disputeStatus
 		})
 		.from(billingPurchases)
-		.where(eq(billingPurchases.userId, userId))
+		.where(and(eq(billingPurchases.userId, userId), eq(billingPurchases.mode, mode)))
 		.orderBy(desc(billingPurchases.createdAt))
 		.limit(20);
 
@@ -91,7 +93,7 @@ export async function getWallet(userId: string) {
 			createdAt: aiUsage.createdAt
 		})
 		.from(aiUsage)
-		.where(eq(aiUsage.userId, userId))
+		.where(and(eq(aiUsage.userId, userId), eq(aiUsage.mode, mode)))
 		.orderBy(desc(aiUsage.createdAt))
 		.limit(20);
 
@@ -119,6 +121,7 @@ export async function createPurchase(input: {
 	userId: string;
 	amountCents: number;
 }): Promise<Purchase> {
+	const mode = requireStripeMode();
 	assertValidTopup(input.amountCents);
 	const db = getDb();
 	const [purchase] = await db
@@ -126,6 +129,7 @@ export async function createPurchase(input: {
 		.values({
 			id: input.id,
 			userId: input.userId,
+			mode,
 			amountCents: input.amountCents,
 			currency: BILLING_CURRENCY,
 			createdAt: Date.now()
@@ -138,11 +142,12 @@ export async function createPurchase(input: {
 	const [existing] = await db
 		.select()
 		.from(billingPurchases)
-		.where(eq(billingPurchases.id, input.id))
+		.where(and(eq(billingPurchases.id, input.id), eq(billingPurchases.mode, mode)))
 		.limit(1);
 	if (
 		existing &&
 		existing.userId === input.userId &&
+		existing.mode === mode &&
 		existing.amountCents === input.amountCents &&
 		existing.currency === BILLING_CURRENCY
 	) {
@@ -152,10 +157,11 @@ export async function createPurchase(input: {
 }
 
 export async function getPurchase(id: string): Promise<Purchase | undefined> {
+	const mode = requireStripeMode();
 	const [purchase] = await getDb()
 		.select()
 		.from(billingPurchases)
-		.where(eq(billingPurchases.id, id))
+		.where(and(eq(billingPurchases.id, id), eq(billingPurchases.mode, mode)))
 		.limit(1);
 	return purchase;
 }
@@ -165,6 +171,7 @@ export async function attachCheckoutSession(
 	userId: string,
 	sessionId: string
 ): Promise<Purchase> {
+	const mode = requireStripeMode();
 	const db = getDb();
 	const [purchase] = await db
 		.update(billingPurchases)
@@ -173,6 +180,7 @@ export async function attachCheckoutSession(
 			and(
 				eq(billingPurchases.id, id),
 				eq(billingPurchases.userId, userId),
+				eq(billingPurchases.mode, mode),
 				or(
 					isNull(billingPurchases.checkoutSessionId),
 					eq(billingPurchases.checkoutSessionId, sessionId)
@@ -185,9 +193,15 @@ export async function attachCheckoutSession(
 	const [existing] = await db
 		.select()
 		.from(billingPurchases)
-		.where(eq(billingPurchases.id, id))
+		.where(
+			and(
+				eq(billingPurchases.id, id),
+				eq(billingPurchases.userId, userId),
+				eq(billingPurchases.mode, mode)
+			)
+		)
 		.limit(1);
-	if (!existing || existing.userId !== userId) {
+	if (!existing) {
 		throw new Error('Purchase was not found for this user');
 	}
 	throw new Error('Purchase already has a different checkout session');
@@ -200,6 +214,7 @@ export async function creditPurchase(input: {
 	disputed: boolean;
 	disputeStatus?: 'open' | 'won' | 'lost';
 }): Promise<Purchase> {
+	const mode = requireStripeMode();
 	assertNonNegativeSafeInteger(input.refundedCents, 'refundedCents');
 	const db = getDb();
 	const incomingDisputeStatus = input.disputeStatus ?? (input.disputed ? 'open' : undefined);
@@ -225,6 +240,7 @@ export async function creditPurchase(input: {
 		.where(
 			and(
 				eq(billingPurchases.id, input.id),
+				eq(billingPurchases.mode, mode),
 				or(
 					isNull(billingPurchases.paymentIntentId),
 					eq(billingPurchases.paymentIntentId, input.paymentIntentId)
@@ -238,7 +254,7 @@ export async function creditPurchase(input: {
 	const [existing] = await db
 		.select()
 		.from(billingPurchases)
-		.where(eq(billingPurchases.id, input.id))
+		.where(and(eq(billingPurchases.id, input.id), eq(billingPurchases.mode, mode)))
 		.limit(1);
 	if (!existing) throw new Error('Purchase was not found');
 	if (existing.paymentIntentId && existing.paymentIntentId !== input.paymentIntentId) {
@@ -255,28 +271,29 @@ export async function reserveUsage(input: {
 	userId: string;
 	tripId: string;
 }): Promise<'reserved' | 'insufficient_credit' | 'duplicate' | 'rate_limited'> {
+	const mode = requireStripeMode();
 	const now = Date.now();
 	const result = await getDb().all(sql`
 		INSERT INTO ai_usage (
-			id, user_id, trip_id, reserved_micro_usd, created_at
+			id, user_id, mode, trip_id, reserved_micro_usd, created_at
 		)
 		SELECT
-			${input.id}, ${input.userId}, ${input.tripId}, ${AI_RESERVATION_MICRO_USD}, ${now}
+			${input.id}, ${input.userId}, ${mode}, ${input.tripId}, ${AI_RESERVATION_MICRO_USD}, ${now}
 		WHERE (
 			COALESCE((
 				SELECT SUM(credited_micro_usd)
 				FROM billing_purchases
-				WHERE user_id = ${input.userId} AND currency = ${BILLING_CURRENCY}
+				WHERE user_id = ${input.userId} AND mode = ${mode} AND currency = ${BILLING_CURRENCY}
 			), 0) - COALESCE((
 				SELECT SUM(COALESCE(charged_micro_usd, reserved_micro_usd))
 				FROM ai_usage
-				WHERE user_id = ${input.userId}
+				WHERE user_id = ${input.userId} AND mode = ${mode}
 			), 0)
 		) >= ${AI_RESERVATION_MICRO_USD}
 		AND (
 			SELECT COUNT(*)
 			FROM ai_usage
-			WHERE user_id = ${input.userId} AND created_at >= ${now - 60_000}
+			WHERE user_id = ${input.userId} AND mode = ${mode} AND created_at >= ${now - 60_000}
 		) < 20
 		ON CONFLICT(id) DO NOTHING
 		RETURNING id
@@ -286,17 +303,23 @@ export async function reserveUsage(input: {
 	const [existing] = await getDb()
 		.select({ id: aiUsage.id })
 		.from(aiUsage)
-		.where(eq(aiUsage.id, input.id))
+		.where(and(eq(aiUsage.id, input.id), eq(aiUsage.mode, mode)))
 		.limit(1);
 	if (existing) return 'duplicate';
-	if ((await getBalanceMicroUsd(input.userId)) < AI_RESERVATION_MICRO_USD) {
+	if ((await getBalanceMicroUsd(input.userId, mode)) < AI_RESERVATION_MICRO_USD) {
 		return 'insufficient_credit';
 	}
 
 	const [recent] = await getDb()
 		.select({ count: sql<number>`COUNT(*)` })
 		.from(aiUsage)
-		.where(and(eq(aiUsage.userId, input.userId), gte(aiUsage.createdAt, now - 60_000)));
+		.where(
+			and(
+				eq(aiUsage.userId, input.userId),
+				eq(aiUsage.mode, mode),
+				gte(aiUsage.createdAt, now - 60_000)
+			)
+		);
 	return (recent?.count ?? 0) >= 20 ? 'rate_limited' : 'insufficient_credit';
 }
 
@@ -305,6 +328,7 @@ export async function recordGeneration(
 	userId: string,
 	generationId: string
 ): Promise<boolean> {
+	const mode = requireStripeMode();
 	const updated = await getDb()
 		.update(aiUsage)
 		.set({ generationId })
@@ -312,6 +336,7 @@ export async function recordGeneration(
 			and(
 				eq(aiUsage.id, id),
 				eq(aiUsage.userId, userId),
+				eq(aiUsage.mode, mode),
 				isNull(aiUsage.chargedMicroUsd),
 				or(isNull(aiUsage.generationId), eq(aiUsage.generationId, generationId))
 			)
@@ -327,6 +352,7 @@ export async function settleUsage(input: {
 	promptTokens: number;
 	completionTokens: number;
 }): Promise<boolean> {
+	const mode = requireStripeMode();
 	assertNonNegativeSafeInteger(input.providerCostMicroUsd, 'providerCostMicroUsd');
 	assertNonNegativeSafeInteger(input.promptTokens, 'promptTokens');
 	assertNonNegativeSafeInteger(input.completionTokens, 'completionTokens');
@@ -348,6 +374,7 @@ export async function settleUsage(input: {
 			and(
 				eq(aiUsage.id, input.id),
 				eq(aiUsage.userId, input.userId),
+				eq(aiUsage.mode, mode),
 				isNull(aiUsage.chargedMicroUsd)
 			)
 		)
@@ -356,6 +383,7 @@ export async function settleUsage(input: {
 }
 
 export async function releaseUsage(id: string, userId: string): Promise<boolean> {
+	const mode = requireStripeMode();
 	const updated = await getDb()
 		.update(aiUsage)
 		.set({
@@ -364,12 +392,20 @@ export async function releaseUsage(id: string, userId: string): Promise<boolean>
 			promptTokens: null,
 			completionTokens: null
 		})
-		.where(and(eq(aiUsage.id, id), eq(aiUsage.userId, userId), isNull(aiUsage.chargedMicroUsd)))
+		.where(
+			and(
+				eq(aiUsage.id, id),
+				eq(aiUsage.userId, userId),
+				eq(aiUsage.mode, mode),
+				isNull(aiUsage.chargedMicroUsd)
+			)
+		)
 		.returning({ id: aiUsage.id });
 	return updated.length > 0;
 }
 
 export async function getPendingUsage(userId: string) {
+	const mode = requireStripeMode();
 	const pending = await getDb()
 		.select({
 			id: aiUsage.id,
@@ -380,6 +416,7 @@ export async function getPendingUsage(userId: string) {
 		.where(
 			and(
 				eq(aiUsage.userId, userId),
+				eq(aiUsage.mode, mode),
 				isNull(aiUsage.chargedMicroUsd),
 				isNotNull(aiUsage.generationId),
 				lte(aiUsage.createdAt, Date.now() - 30_000)

@@ -29,7 +29,7 @@ describe('applyMigrations', () => {
 			.prepare('SELECT name FROM schema_migrations ORDER BY name')
 			.pluck()
 			.all();
-		expect(applied).toEqual(['0001_initial.sql', '0002_billing.sql']);
+		expect(applied).toEqual(['0001_initial.sql', '0002_billing.sql', '0003_billing_mode.sql']);
 	});
 
 	it('is a no-op for databases created before migrations were tracked', () => {

@@ -1,7 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
 
-const helpers = vi.hoisted(() => ({ sqliteRef: null as InstanceType<typeof Database> | null }));
+const helpers = vi.hoisted(() => ({
+	sqliteRef: null as InstanceType<typeof Database> | null,
+	stripeMode: undefined as string | undefined
+}));
+
+vi.mock('$env/dynamic/private', () => ({
+	env: {
+		get STRIPE_MODE() {
+			return helpers.stripeMode;
+		}
+	}
+}));
 
 vi.mock('$lib/server/db', async () => {
 	const Database = (await import('better-sqlite3')).default;
@@ -49,6 +60,14 @@ function seedUsersAndTrips() {
 		startDate: NOW,
 		endDate: NOW + 1_000
 	});
+	insertTestTrip(sqlite, {
+		id: 'trip-3',
+		userId: 'user-1',
+		name: 'Another trip',
+		destination: 'Rome',
+		startDate: NOW,
+		endDate: NOW + 1_000
+	});
 }
 
 async function purchase(userId = 'user-1', id = 'purchase-1', amountCents = 500) {
@@ -73,6 +92,7 @@ async function setCredit(id: string, creditedMicroUsd: number) {
 }
 
 beforeEach(() => {
+	helpers.stripeMode = 'test';
 	if (!helpers.sqliteRef) return;
 	// Clear billing rows before their foreign-key parents.
 	helpers.sqliteRef.exec(
@@ -87,6 +107,7 @@ describe('billing wallet persistence', () => {
 		const replay = await purchase();
 
 		expect(created.currency).toBe('usd');
+		expect(created.mode).toBe('test');
 		expect(created.creditedMicroUsd).toBe(0);
 		expect((await getWallet('user-1')).purchases[0].status).toBe('pending');
 		expect(replay).toEqual(created);
@@ -327,11 +348,144 @@ describe('billing wallet persistence', () => {
 		await fundPurchase('user-1', 'purchase-1', 10_000);
 		const outcomes = await Promise.all(
 			Array.from({ length: 21 }, (_, index) =>
-				reserveUsage({ id: `rate-${index}`, userId: 'user-1', tripId: 'trip-1' })
+				reserveUsage({
+					id: `rate-${index}`,
+					userId: 'user-1',
+					tripId: index % 2 === 0 ? 'trip-1' : 'trip-3'
+				})
 			)
 		);
 		expect(outcomes.filter((outcome) => outcome === 'reserved')).toHaveLength(20);
 		expect(outcomes.filter((outcome) => outcome === 'rate_limited')).toHaveLength(1);
+
+		helpers.stripeMode = 'live';
+		await fundPurchase('user-1', 'live-rate-credit', 500);
+		expect(await reserveUsage({ id: 'live-rate-0', userId: 'user-1', tripId: 'trip-1' })).toBe(
+			'reserved'
+		);
+	});
+
+	it('isolates wallet credits and pending usage between Stripe modes', async () => {
+		await fundPurchase('user-1', 'shared-purchase', 500);
+		expect(await reserveUsage({ id: 'test-request', userId: 'user-1', tripId: 'trip-1' })).toBe(
+			'reserved'
+		);
+		expect(await recordGeneration('test-request', 'user-1', 'gen_test')).toBe(true);
+		helpers
+			.sqliteRef!.prepare('UPDATE ai_usage SET created_at = ? WHERE id = ?')
+			.run(Date.now() - 40_000, 'test-request');
+
+		expect(await getWallet('user-1')).toMatchObject({
+			balanceMicroUsd: 4_700_000,
+			heldMicroUsd: 300_000,
+			purchases: [{ id: 'shared-purchase', creditedMicroUsd: 5_000_000 }],
+			requests: [{ id: 'test-request', chargedMicroUsd: null }]
+		});
+		expect(await getPendingUsage('user-1')).toMatchObject([
+			{ id: 'test-request', generationId: 'gen_test' }
+		]);
+
+		helpers.stripeMode = 'live';
+		expect(await getWallet('user-1')).toMatchObject({
+			balanceMicroUsd: 0,
+			heldMicroUsd: 0,
+			purchases: [],
+			requests: []
+		});
+		expect(await reserveUsage({ id: 'live-no-credit', userId: 'user-1', tripId: 'trip-1' })).toBe(
+			'insufficient_credit'
+		);
+		expect(await getPurchase('shared-purchase')).toBeUndefined();
+		await expect(purchase('user-1', 'shared-purchase')).rejects.toThrow();
+		await expect(attachCheckoutSession('shared-purchase', 'user-1', 'cs_live')).rejects.toThrow();
+		await expect(
+			creditPurchase({
+				id: 'shared-purchase',
+				paymentIntentId: 'pi-shared-purchase',
+				refundedCents: 100,
+				disputed: false
+			})
+		).rejects.toThrow('Purchase was not found');
+		expect(await recordGeneration('test-request', 'user-1', 'gen_test')).toBe(false);
+		expect(
+			await settleUsage({
+				id: 'test-request',
+				userId: 'user-1',
+				providerCostMicroUsd: 50_000,
+				promptTokens: 1,
+				completionTokens: 1
+			})
+		).toBe(false);
+		expect(await releaseUsage('test-request', 'user-1')).toBe(false);
+		expect(await getPendingUsage('user-1')).toEqual([]);
+
+		await fundPurchase('user-1', 'live-purchase', 500);
+		expect(await reserveUsage({ id: 'live-request', userId: 'user-1', tripId: 'trip-1' })).toBe(
+			'reserved'
+		);
+		expect(await recordGeneration('live-request', 'user-1', 'gen_live')).toBe(true);
+		helpers
+			.sqliteRef!.prepare('UPDATE ai_usage SET created_at = ? WHERE id = ?')
+			.run(Date.now() - 40_000, 'live-request');
+		expect(await getWallet('user-1')).toMatchObject({
+			balanceMicroUsd: 4_700_000,
+			requests: [{ id: 'live-request' }],
+			purchases: [{ id: 'live-purchase', creditedMicroUsd: 5_000_000 }]
+		});
+		expect(await getPendingUsage('user-1')).toMatchObject([
+			{ id: 'live-request', generationId: 'gen_live' }
+		]);
+
+		helpers.stripeMode = 'test';
+		expect(await getWallet('user-1')).toMatchObject({
+			balanceMicroUsd: 4_700_000,
+			heldMicroUsd: 300_000,
+			purchases: [{ id: 'shared-purchase', creditedMicroUsd: 5_000_000 }],
+			requests: [{ id: 'test-request', chargedMicroUsd: null }]
+		});
+		expect(await getPendingUsage('user-1')).toMatchObject([
+			{ id: 'test-request', generationId: 'gen_test' }
+		]);
+		expect(await attachCheckoutSession('shared-purchase', 'user-1', 'cs_test')).toMatchObject({
+			checkoutSessionId: 'cs_test',
+			mode: 'test'
+		});
+		expect(
+			await settleUsage({
+				id: 'test-request',
+				userId: 'user-1',
+				providerCostMicroUsd: 50_000,
+				promptTokens: 1,
+				completionTokens: 1
+			})
+		).toBe(true);
+		await creditPurchase({
+			id: 'shared-purchase',
+			paymentIntentId: 'pi-shared-purchase',
+			refundedCents: 100,
+			disputed: false
+		});
+		expect(await getWallet('user-1')).toMatchObject({
+			balanceMicroUsd: 3_900_000,
+			purchases: [{ id: 'shared-purchase', creditedMicroUsd: 4_000_000 }],
+			requests: [{ id: 'test-request', chargedMicroUsd: 100_000 }]
+		});
+
+		helpers.stripeMode = 'live';
+		expect(await getWallet('user-1')).toMatchObject({
+			balanceMicroUsd: 4_700_000,
+			purchases: [{ id: 'live-purchase', creditedMicroUsd: 5_000_000 }],
+			requests: [{ id: 'live-request', chargedMicroUsd: null }]
+		});
+	});
+
+	it('rejects invalid Stripe modes rather than defaulting wallet operations to test', async () => {
+		helpers.stripeMode = 'production';
+		await expect(getWallet('user-1')).rejects.toThrow('valid Stripe mode');
+		await expect(purchase()).rejects.toThrow('valid Stripe mode');
+		await expect(
+			reserveUsage({ id: 'invalid-mode', userId: 'user-1', tripId: 'trip-1' })
+		).rejects.toThrow('valid Stripe mode');
 	});
 
 	it('records generation IDs only on pending requests and never replaces a different ID', async () => {
