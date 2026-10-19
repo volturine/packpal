@@ -80,6 +80,24 @@ describe('verifyPassword', () => {
 			}
 		}
 	});
+
+	it('returns false for malformed stored password hashes', () => {
+		const malformed = [
+			'',
+			':',
+			'not-a-hash',
+			`${'a'.repeat(31)}:${'b'.repeat(128)}`,
+			`${'a'.repeat(32)}:${'b'.repeat(127)}`,
+			`${'g'.repeat(32)}:${'b'.repeat(128)}`,
+			`${'a'.repeat(32)}:${'b'.repeat(128)}:extra`,
+			`${'a'.repeat(32)}:${'b'.repeat(128)}\n`
+		];
+
+		for (const stored of malformed) {
+			expect(() => verifyPassword('password', stored)).not.toThrow();
+			expect(verifyPassword('password', stored)).toBe(false);
+		}
+	});
 });
 
 describe('createUser', () => {
@@ -154,6 +172,25 @@ describe('validateSession', () => {
 		expect(result).toBeNull();
 
 		// Session should be deleted
+		const row = helpers.sqliteRef!.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId);
+		expect(row).toBeUndefined();
+	});
+
+	it('treats a session expiring exactly now as expired', async () => {
+		const user = await createUser('testuser', 'pass', 'Test');
+		const sessionId = await createSession(user.id);
+		const expiry = Date.now();
+		helpers
+			.sqliteRef!.prepare('UPDATE sessions SET expires_at = ? WHERE id = ?')
+			.run(expiry, sessionId);
+
+		const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(expiry);
+		try {
+			expect(await validateSession(sessionId)).toBeNull();
+		} finally {
+			nowSpy.mockRestore();
+		}
+
 		const row = helpers.sqliteRef!.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId);
 		expect(row).toBeUndefined();
 	});

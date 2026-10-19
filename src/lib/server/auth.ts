@@ -13,7 +13,10 @@ export function hashPassword(password: string): string {
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
-	const [salt, hash] = stored.split(':');
+	if (typeof stored !== 'string' || stored.length !== 161) return false;
+	const match = /^([a-f0-9]{32}):([a-f0-9]{128})$/.exec(stored);
+	if (!match) return false;
+	const [, salt, hash] = match;
 	const hashBuffer = Buffer.from(hash, 'hex');
 	const derivedKey = scryptSync(password, salt, 64);
 	return timingSafeEqual(hashBuffer, derivedKey);
@@ -56,7 +59,7 @@ export async function validateSession(sessionId: string) {
 		.where(eq(sessions.id, sessionId))
 		.get();
 
-	if (!result || result.expiresAt < Date.now()) {
+	if (!result || result.expiresAt <= Date.now()) {
 		if (result) {
 			await getDb().delete(sessions).where(eq(sessions.id, sessionId)).run();
 		}

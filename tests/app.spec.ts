@@ -98,6 +98,26 @@ test.describe('Trip CRUD', () => {
 		await expect(page).toHaveURL(/\/app\/trips\/new/);
 	});
 
+	test('rejects JSON mutations with a foreign or missing origin', async ({ page }) => {
+		for (const origin of [undefined, 'https://evil.test']) {
+			const response = await page.request.post('/api/trips', {
+				headers: origin ? { origin } : {},
+				data: {
+					name: 'Forged trip',
+					destination: 'Paris',
+					startDate: Date.now(),
+					endDate: Date.now() + 86_400_000,
+					activities: [],
+					climate: 'temperate',
+					travelers: 1
+				}
+			});
+			expect(response.status()).toBe(403);
+		}
+		const response = await page.request.get('/api/trips');
+		expect(await response.json()).toEqual([]);
+	});
+
 	test('a checkout return cannot create free AI credit', async ({ page }) => {
 		await page.setViewportSize({ width: 390, height: 844 });
 		await page.getByRole('link', { name: 'AI credits', exact: true }).click();
@@ -115,8 +135,12 @@ test.describe('Trip CRUD', () => {
 		expect((await response.json()).balanceMicroUsd).toBe(0);
 	});
 
-	test('shows credit history guidance when an AI request is uncertain', async ({ page }) => {
+	test('shows credit history guidance when an AI request is uncertain', async ({
+		page,
+		baseURL
+	}) => {
 		const tripResponse = await page.request.post('/api/trips', {
+			headers: { origin: baseURL! },
 			data: {
 				name: 'Pending response trip',
 				destination: 'Reykjavik',
@@ -301,8 +325,9 @@ test.describe('Trip CRUD', () => {
 	});
 });
 
-test('anonymous callers cannot use the AI endpoint', async ({ request }) => {
+test('anonymous callers cannot use the AI endpoint', async ({ request, baseURL }) => {
 	const response = await request.post('/api/chat', {
+		headers: { origin: baseURL! },
 		data: {
 			tripId: 'unknown',
 			requestId: crypto.randomUUID(),

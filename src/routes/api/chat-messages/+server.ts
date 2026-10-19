@@ -6,6 +6,7 @@ import { chatMessages } from '$lib/server/schema';
 import { and, eq, lt, desc } from 'drizzle-orm';
 import { getAccessibleTripById } from '$lib/server/trip-access';
 import { generateId } from '$lib/server/utils';
+import { readJsonObject } from '$lib/server/request';
 
 const PAGE_SIZE = 50;
 
@@ -20,12 +21,23 @@ export const GET: RequestHandler = async (event) => {
 	const trip = await getAccessibleTripById(session.userId, tripId);
 	if (!trip) return json({ error: 'Trip not found' }, { status: 404 });
 
-	const before = event.url.searchParams.get('before');
-	const limit = Math.min(Number(event.url.searchParams.get('limit')) || PAGE_SIZE, 100);
+	const beforeParam = event.url.searchParams.get('before');
+	const limitParam = event.url.searchParams.get('limit');
+	const before = beforeParam === null ? null : Number(beforeParam);
+	const limit = limitParam === null ? PAGE_SIZE : Number(limitParam);
+	if (
+		!Number.isSafeInteger(limit) ||
+		limit < 1 ||
+		limit > 100 ||
+		(limitParam !== null && !limitParam.trim()) ||
+		(before !== null && (!beforeParam?.trim() || !Number.isSafeInteger(before) || before < 0))
+	) {
+		return json({ error: 'Invalid pagination parameters' }, { status: 400 });
+	}
 
 	const conditions = [eq(chatMessages.tripId, tripId)];
-	if (before) {
-		conditions.push(lt(chatMessages.createdAt, Number(before)));
+	if (before !== null) {
+		conditions.push(lt(chatMessages.createdAt, before));
 	}
 
 	const messages = await getDb()
@@ -47,15 +59,20 @@ export const POST: RequestHandler = async (event) => {
 	const session = await getSessionFromCookies(event);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
-	const body = await event.request.json();
-	const { tripId, role, content } = body as {
-		tripId: string;
-		role: 'user' | 'assistant';
-		content: string;
-	};
+	const body = await readJsonObject(event.request, 65_536);
+	if (!body) return json({ error: 'Invalid or oversized message request' }, { status: 400 });
+	const { tripId, role, content } = body;
 
-	if (!tripId || !role || !content) {
-		return json({ error: 'tripId, role, and content required' }, { status: 400 });
+	if (
+		typeof tripId !== 'string' ||
+		!tripId.trim() ||
+		tripId.length > 128 ||
+		(role !== 'user' && role !== 'assistant') ||
+		typeof content !== 'string' ||
+		!content.trim() ||
+		content.length > 16_384
+	) {
+		return json({ error: 'Valid tripId, role, and content required' }, { status: 400 });
 	}
 
 	const trip = await getAccessibleTripById(session.userId, tripId);
