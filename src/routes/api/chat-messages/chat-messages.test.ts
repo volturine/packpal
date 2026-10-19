@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
+import type { RequestEvent } from './$types';
 
 // Set up in-memory test DB mock
 const helpers = vi.hoisted(() => {
@@ -61,12 +62,12 @@ async function createAuthEvent(opts: {
 	if (sessionId) cookieStore['packpal_session'] = sessionId;
 
 	return {
-		request: new Request(opts.url ?? 'http://localhost/api/chat-messages', {
+		request: new Request(opts.url ?? 'https://packpal.test/api/chat-messages', {
 			method: opts.method ?? 'GET',
 			body: opts.body ? JSON.stringify(opts.body) : undefined,
 			headers: opts.body ? { 'Content-Type': 'application/json' } : undefined
 		}),
-		url: new URL(opts.url ?? 'http://localhost/api/chat-messages'),
+		url: new URL(opts.url ?? 'https://packpal.test/api/chat-messages'),
 		params: {},
 		cookies: {
 			get: (name: string) => cookieStore[name] ?? undefined,
@@ -87,8 +88,7 @@ async function createAuthEvent(opts: {
 		setHeaders: () => {},
 		getClientAddress: () => '127.0.0.1',
 		fetch: globalThis.fetch
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	} as any;
+	} as unknown as RequestEvent;
 }
 
 function seedTrip() {
@@ -111,7 +111,7 @@ describe('GET /api/chat-messages', () => {
 	it('returns 401 when not authenticated', async () => {
 		const event = await createAuthEvent({
 			method: 'GET',
-			url: 'http://localhost/api/chat-messages?tripId=trip-1'
+			url: 'https://packpal.test/api/chat-messages?tripId=trip-1'
 		});
 		const response = await GET(event);
 		expect(response.status).toBe(401);
@@ -121,7 +121,7 @@ describe('GET /api/chat-messages', () => {
 		const event = await createAuthEvent({
 			method: 'GET',
 			sessionUserId: 'user-1',
-			url: 'http://localhost/api/chat-messages'
+			url: 'https://packpal.test/api/chat-messages'
 		});
 		const response = await GET(event);
 		expect(response.status).toBe(400);
@@ -133,7 +133,7 @@ describe('GET /api/chat-messages', () => {
 		const event = await createAuthEvent({
 			method: 'GET',
 			sessionUserId: 'user-1',
-			url: 'http://localhost/api/chat-messages?tripId=trip-1'
+			url: 'https://packpal.test/api/chat-messages?tripId=trip-1'
 		});
 		const response = await GET(event);
 		const data = await response.json();
@@ -153,7 +153,7 @@ describe('GET /api/chat-messages', () => {
 		const event = await createAuthEvent({
 			method: 'GET',
 			sessionUserId: 'user-2',
-			url: 'http://localhost/api/chat-messages?tripId=trip-1'
+			url: 'https://packpal.test/api/chat-messages?tripId=trip-1'
 		});
 		const response = await GET(event);
 		expect(response.status).toBe(404);
@@ -238,4 +238,94 @@ describe('POST /api/chat-messages', () => {
 		const response = await POST(event);
 		expect(response.status).toBe(200);
 	});
+});
+
+describe('chat message validation', () => {
+	it.each(['-1', '-2', '0', '101', '1.5', 'Infinity', 'NaN', ''])(
+		'rejects invalid limit %j',
+		async (limit) => {
+			seedTrip();
+			const event = await createAuthEvent({
+				sessionUserId: 'user-1',
+				url: `https://packpal.test/api/chat-messages?tripId=trip-1&limit=${limit}`
+			});
+			expect((await GET(event)).status).toBe(400);
+		}
+	);
+
+	it.each(['-1', '1.5', 'Infinity', 'NaN', ''])('rejects invalid cursor %j', async (before) => {
+		seedTrip();
+		const event = await createAuthEvent({
+			sessionUserId: 'user-1',
+			url: `https://packpal.test/api/chat-messages?tripId=trip-1&before=${before}`
+		});
+		expect((await GET(event)).status).toBe(400);
+	});
+
+	it('bounds pages and applies the timestamp cursor', async () => {
+		seedTrip();
+		const insert = helpers.sqliteRef!.prepare(
+			'INSERT INTO chat_messages (id,trip_id,user_id,role,content,created_at) VALUES (?,?,?,?,?,?)'
+		);
+		for (let i = 1; i <= 105; i++)
+			insert.run(`message-${i}`, 'trip-1', 'user-1', 'user', `Message ${i}`, i);
+		const page = await GET(
+			await createAuthEvent({
+				sessionUserId: 'user-1',
+				url: 'https://packpal.test/api/chat-messages?tripId=trip-1&limit=2&before=100'
+			})
+		);
+		expect(await page.json()).toMatchObject({
+			messages: [{ id: 'message-98' }, { id: 'message-99' }],
+			hasMore: true
+		});
+		const first = await GET(
+			await createAuthEvent({
+				sessionUserId: 'user-1',
+				url: 'https://packpal.test/api/chat-messages?tripId=trip-1&before=0'
+			})
+		);
+		expect(await first.json()).toEqual({ messages: [], hasMore: false });
+		const maximum = await GET(
+			await createAuthEvent({
+				sessionUserId: 'user-1',
+				url: 'https://packpal.test/api/chat-messages?tripId=trip-1&limit=100'
+			})
+		);
+		const data = await maximum.json();
+		expect(data.messages).toHaveLength(100);
+		expect(data.hasMore).toBe(true);
+	});
+
+	it.each([
+		{ role: 'system' },
+		{ role: {} },
+		{ tripId: [] },
+		{ content: [] },
+		{ content: 123 },
+		{ content: '   ' },
+		{ content: 'x'.repeat(16_385) }
+	])('rejects invalid message fields %# without writing', async (fields) => {
+		seedTrip();
+		const event = await createAuthEvent({
+			method: 'POST',
+			sessionUserId: 'user-1',
+			body: { tripId: 'trip-1', role: 'user', content: 'Hello', ...fields }
+		});
+		expect((await POST(event)).status).toBe(400);
+		expect(helpers.sqliteRef!.prepare('SELECT COUNT(*) FROM chat_messages').pluck().get()).toBe(0);
+	});
+
+	it.each(['{', 'null', '[]', '42', JSON.stringify({ content: 'x'.repeat(65_536) })])(
+		'rejects invalid JSON bodies %# without writing',
+		async (body) => {
+			seedTrip();
+			const event = await createAuthEvent({ method: 'POST', sessionUserId: 'user-1' });
+			event.request = new Request(event.url, { method: 'POST', body });
+			expect((await POST(event)).status).toBe(400);
+			expect(helpers.sqliteRef!.prepare('SELECT COUNT(*) FROM chat_messages').pluck().get()).toBe(
+				0
+			);
+		}
+	);
 });

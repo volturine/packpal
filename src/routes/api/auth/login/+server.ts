@@ -5,6 +5,10 @@ import { getDb } from '$lib/server/db';
 import { users } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { rateLimitByIp } from '$lib/server/rate-limit';
+import { readJsonObject } from '$lib/server/request';
+
+const MAX_USERNAME_LENGTH = 100;
+const MAX_PASSWORD_LENGTH = 1024;
 
 export const POST: RequestHandler = async (event) => {
 	const { allowed, retryAfterMs } = rateLimitByIp(event, 'auth:login', 10, 60_000);
@@ -15,11 +19,22 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	const body = await event.request.json();
-	const { username, password } = body as { username: string; password: string };
+	const body = await readJsonObject(event.request);
+	if (!body) return json({ error: 'Invalid request body' }, { status: 400 });
 
-	if (!username?.trim() || !password) {
+	const { username, password } = body;
+	if (typeof username !== 'string' || typeof password !== 'string') {
 		return json({ error: 'Username and password are required' }, { status: 400 });
+	}
+
+	if (!username.trim() || !password) {
+		return json({ error: 'Username and password are required' }, { status: 400 });
+	}
+	if (username.length > MAX_USERNAME_LENGTH) {
+		return json({ error: 'Username must be at most 100 characters' }, { status: 400 });
+	}
+	if (password.length > MAX_PASSWORD_LENGTH) {
+		return json({ error: 'Password must be at most 1024 characters' }, { status: 400 });
 	}
 
 	const user = await getDb().select().from(users).where(eq(users.username, username.trim())).get();

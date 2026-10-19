@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
+import type { RequestEvent } from '@sveltejs/kit';
 
 // Set up in-memory test DB mock
 const helpers = vi.hoisted(() => {
@@ -22,6 +23,7 @@ import { POST as registerPOST } from './register/+server';
 import { POST as loginPOST } from './login/+server';
 import { POST as logoutPOST } from './logout/+server';
 import { GET as meGET } from './me/+server';
+import { PATCH as mePATCH } from './me/+server';
 import { clearAllTables } from '$lib/server/test-db-helpers';
 import { resetRateLimitStore } from '$lib/server/rate-limit';
 
@@ -32,20 +34,35 @@ beforeEach(() => {
 	resetRateLimitStore();
 });
 
+type MockRequestEvent = RequestEvent<Record<string, never>, never> & {
+	_cookieStore: Record<string, string>;
+};
+
 /** Create a minimal mock RequestEvent */
 function createMockEvent(opts: {
 	method?: string;
-	body?: Record<string, unknown>;
+	body?: unknown;
+	rawBody?: string;
+	contentLength?: string;
 	url?: string;
 	cookies?: Record<string, string>;
-}) {
+}): MockRequestEvent {
 	const cookieStore: Record<string, string> = { ...opts.cookies };
+	const requestBody =
+		opts.rawBody ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body));
+	const headers =
+		requestBody === undefined
+			? undefined
+			: {
+					'Content-Type': 'application/json',
+					...(opts.contentLength ? { 'Content-Length': opts.contentLength } : {})
+				};
 
 	return {
 		request: new Request(opts.url ?? 'http://localhost/api/auth', {
 			method: opts.method ?? 'POST',
-			body: opts.body ? JSON.stringify(opts.body) : undefined,
-			headers: opts.body ? { 'Content-Type': 'application/json' } : undefined
+			body: requestBody,
+			headers
 		}),
 		url: new URL(opts.url ?? 'http://localhost/api/auth'),
 		params: {},
@@ -69,8 +86,7 @@ function createMockEvent(opts: {
 		getClientAddress: () => '127.0.0.1',
 		fetch: globalThis.fetch,
 		_cookieStore: cookieStore // expose for testing
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	} as any;
+	} as unknown as MockRequestEvent;
 }
 
 describe('POST /api/auth/register', () => {
@@ -101,6 +117,52 @@ describe('POST /api/auth/register', () => {
 			body: { username: 'test' }
 		});
 		const response = await registerPOST(event);
+		expect(response.status).toBe(400);
+	});
+
+	it('rejects malformed and non-object JSON bodies', async () => {
+		for (const rawBody of ['{', 'null', '[]', '"value"', '123', 'true']) {
+			resetRateLimitStore();
+			const response = await registerPOST(createMockEvent({ rawBody }));
+			expect(response.status).toBe(400);
+		}
+	});
+
+	it('rejects a body larger than 16 KiB based on its actual bytes', async () => {
+		const rawBody = JSON.stringify({
+			username: 'testuser',
+			password: 'password123',
+			displayName: 'a'.repeat(16_500)
+		});
+		const response = await registerPOST(createMockEvent({ rawBody, contentLength: '1' }));
+
+		expect(response.status).toBe(400);
+	});
+
+	it('rejects non-string and oversized fields', async () => {
+		const invalidBodies = [
+			{ username: 7, password: 'password123', displayName: 'Test User' },
+			{ username: 'testuser', password: false, displayName: 'Test User' },
+			{ username: 'testuser', password: 'password123', displayName: null },
+			{ username: 'u'.repeat(101), password: 'password123', displayName: 'Test User' },
+			{ username: 'testuser', password: 'password123', displayName: 'd'.repeat(101) },
+			{ username: 'testuser', password: 'p'.repeat(1025), displayName: 'Test User' }
+		];
+
+		for (const body of invalidBodies) {
+			resetRateLimitStore();
+			const response = await registerPOST(createMockEvent({ body }));
+			expect(response.status).toBe(400);
+		}
+	});
+
+	it('rejects a display name that becomes empty after sanitization', async () => {
+		const response = await registerPOST(
+			createMockEvent({
+				body: { username: 'testuser', password: 'password123', displayName: '<b></b>' }
+			})
+		);
+
 		expect(response.status).toBe(400);
 	});
 
@@ -184,6 +246,20 @@ describe('POST /api/auth/login', () => {
 		const response = await loginPOST(event);
 		expect(response.status).toBe(400);
 	});
+
+	it('rejects wrong field types and oversized credentials before password verification', async () => {
+		const invalidBodies = [
+			{ username: 7, password: 'password123' },
+			{ username: 'testuser', password: false },
+			{ username: 'u'.repeat(101), password: 'password123' },
+			{ username: 'testuser', password: 'p'.repeat(1025) }
+		];
+
+		for (const body of invalidBodies) {
+			const response = await loginPOST(createMockEvent({ body }));
+			expect(response.status).toBe(400);
+		}
+	});
 });
 
 describe('POST /api/auth/logout', () => {
@@ -249,5 +325,111 @@ describe('GET /api/auth/me', () => {
 
 		expect(response.status).toBe(200);
 		expect(data.user).toBeNull();
+	});
+});
+
+describe('PATCH /api/auth/me', () => {
+	it('validates all fields before changing the password', async () => {
+		const registrationEvent = createMockEvent({
+			body: { username: 'testuser', password: 'password123', displayName: 'Test User' }
+		});
+		await registerPOST(registrationEvent);
+
+		const patchEvent = createMockEvent({
+			cookies: { packpal_session: registrationEvent._cookieStore.packpal_session },
+			body: {
+				currentPassword: 'password123',
+				newPassword: 'changed-password',
+				displayName: '<b></b>'
+			}
+		});
+		const response = await mePATCH(patchEvent);
+		expect(response.status).toBe(400);
+
+		const oldPasswordLogin = await loginPOST(
+			createMockEvent({ body: { username: 'testuser', password: 'password123' } })
+		);
+		const newPasswordLogin = await loginPOST(
+			createMockEvent({ body: { username: 'testuser', password: 'changed-password' } })
+		);
+		expect(oldPasswordLogin.status).toBe(200);
+		expect(newPasswordLogin.status).toBe(401);
+	});
+
+	it('rejects wrong types and oversized profile fields', async () => {
+		const registrationEvent = createMockEvent({
+			body: { username: 'testuser', password: 'password123', displayName: 'Test User' }
+		});
+		await registerPOST(registrationEvent);
+		const cookies = { packpal_session: registrationEvent._cookieStore.packpal_session };
+		const invalidBodies = [
+			{ displayName: 42 },
+			{ currentPassword: [] },
+			{ newPassword: false },
+			{ newPassword: '' },
+			{ displayName: 'd'.repeat(101) },
+			{ currentPassword: 'p'.repeat(1025) },
+			{ newPassword: 'p'.repeat(1025) }
+		];
+
+		for (const body of invalidBodies) {
+			const response = await mePATCH(createMockEvent({ cookies, body }));
+			expect(response.status).toBe(400);
+		}
+	});
+
+	it('revokes the user’s other sessions while keeping the calling and unrelated sessions', async () => {
+		const registrationEvent = createMockEvent({
+			body: { username: 'testuser', password: 'password123', displayName: 'Test User' }
+		});
+		await registerPOST(registrationEvent);
+		const currentSessionId = registrationEvent._cookieStore.packpal_session;
+		const unrelatedRegistration = createMockEvent({
+			body: { username: 'otheruser', password: 'password123', displayName: 'Other User' }
+		});
+		await registerPOST(unrelatedRegistration);
+		const unrelatedSessionId = unrelatedRegistration._cookieStore.packpal_session;
+
+		const secondLoginEvent = createMockEvent({
+			body: { username: 'testuser', password: 'password123' }
+		});
+		await loginPOST(secondLoginEvent);
+		const oldSessionId = secondLoginEvent._cookieStore.packpal_session;
+
+		const response = await mePATCH(
+			createMockEvent({
+				cookies: { packpal_session: currentSessionId },
+				body: {
+					currentPassword: 'password123',
+					newPassword: 'new-password',
+					displayName: 'Updated User'
+				}
+			})
+		);
+		const responseBody = await response.json();
+		expect(response.status).toBe(200);
+		expect(responseBody.user.displayName).toBe('Updated User');
+
+		const currentSession = await meGET(
+			createMockEvent({ method: 'GET', cookies: { packpal_session: currentSessionId } })
+		);
+		const oldSession = await meGET(
+			createMockEvent({ method: 'GET', cookies: { packpal_session: oldSessionId } })
+		);
+		const unrelatedSession = await meGET(
+			createMockEvent({ method: 'GET', cookies: { packpal_session: unrelatedSessionId } })
+		);
+		expect((await currentSession.json()).user.username).toBe('testuser');
+		expect((await oldSession.json()).user).toBeNull();
+		expect((await unrelatedSession.json()).user.username).toBe('otheruser');
+
+		const oldPasswordLogin = await loginPOST(
+			createMockEvent({ body: { username: 'testuser', password: 'password123' } })
+		);
+		const newPasswordLogin = await loginPOST(
+			createMockEvent({ body: { username: 'testuser', password: 'new-password' } })
+		);
+		expect(oldPasswordLogin.status).toBe(401);
+		expect(newPasswordLogin.status).toBe(200);
 	});
 });
