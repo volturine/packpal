@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import type { AuthUser } from '$lib/types';
+	import type { AuthUser } from '#lib/types.js';
 
 	interface AuthContext {
 		user: AuthUser | null;

@@ -8,7 +8,8 @@
 #     up -d
 #
 # Production stack: swap in docker/compose.production.yaml and --env-file .env.
-# Set PACKPAL_ORIGIN to https://<TS_HOSTNAME>.<tailnet>.ts.net (required for CSRF).
+# Serve's proxy passes the public origin through the host header (and
+# X-Forwarded-*), so no origin setting is needed.
 
 services:
   tailscale:

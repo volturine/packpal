@@ -1,6 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { dev } from '$app/environment';
-import { getDb } from '$lib/server/db';
+import { dev } from '$app/env';
+import { getDb } from '#lib/server/db.js';
 import { sessions, users } from './schema';
 import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';

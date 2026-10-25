@@ -10,7 +10,10 @@ services:
     ports:
       - '${PACKPAL_PORT:-3200}:3000'
     environment:
-      ORIGIN: ${PACKPAL_ORIGIN:?Set PACKPAL_ORIGIN in .env.dev}
+      # The origin is derived from the request: run behind the Tailscale Serve
+      # overlay (or another trusted proxy) so the host header is the public origin.
+      # adapter-node 6 has no runtime ORIGIN override; direct plain-HTTP exposure
+      # needs a PACKPAL_ORIGIN bake instead (see docker/compose.yaml).
       DATABASE_PATH: /data/packpal.db
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}

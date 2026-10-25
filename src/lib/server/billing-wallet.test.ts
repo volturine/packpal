@@ -6,17 +6,15 @@ const helpers = vi.hoisted(() => ({
 	stripeMode: undefined as string | undefined
 }));
 
-vi.mock('$env/dynamic/private', () => ({
-	env: {
-		get STRIPE_MODE() {
-			return helpers.stripeMode;
-		}
+vi.mock('$app/env/private', () => ({
+	get STRIPE_MODE() {
+		return helpers.stripeMode;
 	}
 }));
 
-vi.mock('$lib/server/db', async () => {
+vi.mock('#lib/server/db.js', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
+	const { applyMigrations, createSqliteDb } = await import('#lib/server/sqlite.js');
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
 	applyMigrations(sqlite);
@@ -35,7 +33,7 @@ import {
 	releaseUsage,
 	reserveUsage,
 	settleUsage
-} from '$lib/server/billing-wallet';
+} from '#lib/server/billing-wallet.js';
 import { insertTestTrip, insertTestUser } from './test-db-helpers';
 
 const NOW = Date.now();

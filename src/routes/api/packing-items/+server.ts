@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSessionFromCookies } from '$lib/server/auth';
-import { getDb } from '$lib/server/db';
-import { packingItems } from '$lib/server/schema';
+import { getSessionFromCookies } from '#lib/server/auth.js';
+import { getDb } from '#lib/server/db.js';
+import { packingItems } from '#lib/server/schema.js';
 import { eq, inArray, and } from 'drizzle-orm';
-import { getAccessibleTripById } from '$lib/server/trip-access';
-import { generateId, sanitizeText } from '$lib/server/utils';
+import { getAccessibleTripById } from '#lib/server/trip-access.js';
+import { generateId, sanitizeText } from '#lib/server/utils.js';
 
 const VALID_PRIORITIES = new Set(['must', 'normal', 'optional']);
 

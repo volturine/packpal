@@ -1,11 +1,11 @@
 <script lang="ts">
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppHeader from '#lib/components/AppHeader.svelte';
 	import {
 		createBillingRequestId,
 		formatCredit,
 		type BillingSummary,
 		type CreditPurchaseStatus
-	} from '$lib/billing';
+	} from '#lib/billing.js';
 	import { onMount } from 'svelte';
 
 	type HistoryEntry =

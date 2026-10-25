@@ -1,20 +1,20 @@
-import { env } from '$env/dynamic/private';
+import { OPENROUTER_API_KEY } from '$app/env/private';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { Trip } from '$lib/types';
-import { getSessionFromCookies } from '$lib/server/auth';
-import { getAccessibleTripById } from '$lib/server/trip-access';
-import { getTripItems } from '$lib/server/trip-enrichment';
-import { getTripInsightSummary } from '$lib/packing-insights';
-import { buildSystemPrompt } from '$lib/server/ai-prompt';
-import { getStripeMode, isStripeConfigured } from '$lib/server/stripe';
+import type { Trip } from '#lib/types.js';
+import { getSessionFromCookies } from '#lib/server/auth.js';
+import { getAccessibleTripById } from '#lib/server/trip-access.js';
+import { getTripItems } from '#lib/server/trip-enrichment.js';
+import { getTripInsightSummary } from '#lib/packing-insights.js';
+import { buildSystemPrompt } from '#lib/server/ai-prompt.js';
+import { getStripeMode, isStripeConfigured } from '#lib/server/stripe.js';
 import {
 	recordGeneration,
 	releaseUsage,
 	reserveUsage,
 	settleUsage
-} from '$lib/server/billing-wallet';
-import { parseProviderUsage, reconcileUsage } from '$lib/server/billing-usage';
+} from '#lib/server/billing-wallet.js';
+import { parseProviderUsage, reconcileUsage } from '#lib/server/billing-usage.js';
 
 const MAX_BODY_BYTES = 65_536;
 const MAX_PROMPT_BYTES = 16_384;
@@ -68,7 +68,7 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'Invalid request origin.' }, { status: 403 });
 	}
 	const testMode = getStripeMode() === 'test';
-	if (!isStripeConfigured() || (!testMode && !env.OPENROUTER_API_KEY)) {
+	if (!isStripeConfigured() || (!testMode && !OPENROUTER_API_KEY)) {
 		return json({ error: 'AI is temporarily unavailable.' }, { status: 503 });
 	}
 	let body;
@@ -156,7 +156,7 @@ export const POST: RequestHandler = async (event) => {
 		upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
 			method: 'POST',
 			headers: {
-				Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+				Authorization: `Bearer ${OPENROUTER_API_KEY}`,
 				'Content-Type': 'application/json',
 				'HTTP-Referer': event.url.origin,
 				'X-Title': 'PackPal'

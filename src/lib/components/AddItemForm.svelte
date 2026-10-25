@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { CATEGORIES } from '$lib/data/packing-templates';
-	import type { PackingItemPriority } from '$lib/types';
+	import { CATEGORIES } from '#lib/data/packing-templates.js';
+	import type { PackingItemPriority } from '#lib/types.js';
 
 	interface Props {
 		onadd: (item: {

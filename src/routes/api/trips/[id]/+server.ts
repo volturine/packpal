@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSessionFromCookies } from '$lib/server/auth';
-import { getAccessibleTripById } from '$lib/server/trip-access';
-import { enrichTrip } from '$lib/server/trip-enrichment';
+import { getSessionFromCookies } from '#lib/server/auth.js';
+import { getAccessibleTripById } from '#lib/server/trip-access.js';
+import { enrichTrip } from '#lib/server/trip-enrichment.js';
 
 // GET /api/trips/:id - get a single trip
 export const GET: RequestHandler = async (event) => {

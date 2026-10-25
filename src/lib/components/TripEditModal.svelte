@@ -1,13 +1,13 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
+	import Modal from '#lib/components/Modal.svelte';
 	import {
 		ACTIVITIES,
 		ACTIVITY_GROUPS,
 		CLIMATE_OPTIONS,
 		type Climate
-	} from '$lib/data/packing-templates';
-	import type { Trip } from '$lib/types';
-	import { toDateInputValue } from '$lib/format';
+	} from '#lib/data/packing-templates.js';
+	import type { Trip } from '#lib/types.js';
+	import { toDateInputValue } from '#lib/format.js';
 	import { onMount } from 'svelte';
 
 	function iconText(icon: string) {

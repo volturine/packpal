@@ -1,8 +1,8 @@
 <script lang="ts">
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppHeader from '#lib/components/AppHeader.svelte';
 	import { resolve } from '$app/paths';
-	import { createBillingRequestId, formatCredit, type BillingSummary } from '$lib/billing';
-	import type { ChatMessage, PackingItem, PackingItemPriority, Trip } from '$lib/types';
+	import { createBillingRequestId, formatCredit, type BillingSummary } from '#lib/billing.js';
+	import type { ChatMessage, PackingItem, PackingItemPriority, Trip } from '#lib/types.js';
 	import { onMount } from 'svelte';
 
 	const { data } = $props();

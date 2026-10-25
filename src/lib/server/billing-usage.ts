@@ -1,4 +1,4 @@
-import { env } from '$env/dynamic/private';
+import { OPENROUTER_API_KEY } from '$app/env/private';
 import { getPendingUsage, settleUsage } from './billing-wallet';
 import { getStripeMode } from './stripe';
 
@@ -28,7 +28,7 @@ export function parseProviderUsage(value: unknown) {
 
 /** Recover completed generations whose final streaming usage could not be saved. */
 export async function reconcileUsage(userId: string) {
-	if (getStripeMode() !== 'live' || !env.OPENROUTER_API_KEY) return;
+	if (getStripeMode() !== 'live' || !OPENROUTER_API_KEY) return;
 	const pending = await getPendingUsage(userId);
 	await Promise.all(
 		pending.map(async (entry) => {
@@ -37,7 +37,7 @@ export async function reconcileUsage(userId: string) {
 				const url = new URL('https://openrouter.ai/api/v1/generation');
 				url.searchParams.set('id', entry.generationId);
 				const response = await fetch(url, {
-					headers: { Authorization: `Bearer ${env.OPENROUTER_API_KEY}` },
+					headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}` },
 					signal: AbortSignal.timeout(5000)
 				});
 				if (!response.ok) return;

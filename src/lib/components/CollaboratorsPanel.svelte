@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { TripCollaborator, Trip } from '$lib/types';
+	import type { TripCollaborator, Trip } from '#lib/types.js';
 
 	interface Props {
 		trip: Trip;

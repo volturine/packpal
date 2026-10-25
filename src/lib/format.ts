@@ -1,4 +1,4 @@
-import type { ReminderSummary } from '$lib/types';
+import type { ReminderSummary } from '#lib/types.js';
 
 export function formatDate(ts: number): string {
 	return new Date(ts).toLocaleDateString('en-US', {

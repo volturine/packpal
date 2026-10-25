@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { getDb } from '$lib/server/db';
-import { tripCollaborators, trips, users } from '$lib/server/schema';
+import { getDb } from '#lib/server/db.js';
+import { tripCollaborators, trips, users } from '#lib/server/schema.js';
 
 export interface AccessibleTripRecord {
 	id: string;

@@ -6,7 +6,10 @@ import svelte from 'eslint-plugin-svelte';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
-import svelteConfig from './svelte.config.js';
+
+// SvelteKit 3 keeps its config in the sveltekit() plugin options (vite.config.ts).
+// The svelte parser only needs the compile options used by the app's components.
+const svelteConfig = { compilerOptions: { experimental: { async: true } } };
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 

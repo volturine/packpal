@@ -7,9 +7,9 @@ const helpers = vi.hoisted(() => {
 	return { sqliteRef: null as InstanceType<typeof Database> | null };
 });
 
-vi.mock('$lib/server/db', async () => {
+vi.mock('#lib/server/db.js', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
+	const { applyMigrations, createSqliteDb } = await import('#lib/server/sqlite.js');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
@@ -24,8 +24,8 @@ import { POST as loginPOST } from './login/+server';
 import { POST as logoutPOST } from './logout/+server';
 import { GET as meGET } from './me/+server';
 import { PATCH as mePATCH } from './me/+server';
-import { clearAllTables } from '$lib/server/test-db-helpers';
-import { resetRateLimitStore } from '$lib/server/rate-limit';
+import { clearAllTables } from '#lib/server/test-db-helpers.js';
+import { resetRateLimitStore } from '#lib/server/rate-limit.js';
 
 beforeEach(() => {
 	if (helpers.sqliteRef) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getPackingListForTrip, ACTIVITIES, CATEGORIES } from '$lib/data/packing-templates';
+import { getPackingListForTrip, ACTIVITIES, CATEGORIES } from '#lib/data/packing-templates.js';
 
 describe('getPackingListForTrip', () => {
 	it('always includes essential items', () => {

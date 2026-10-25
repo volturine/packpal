@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { BILLING_CURRENCY, MAX_TOPUP_CENTS, MIN_TOPUP_CENTS } from '$lib/billing';
-import { getSessionFromCookies } from '$lib/server/auth';
-import { createPurchase, getPurchase, attachCheckoutSession } from '$lib/server/billing-wallet';
-import { rateLimit } from '$lib/server/rate-limit';
-import { getStripe, isStripeConfigured } from '$lib/server/stripe';
+import { BILLING_CURRENCY, MAX_TOPUP_CENTS, MIN_TOPUP_CENTS } from '#lib/billing.js';
+import { getSessionFromCookies } from '#lib/server/auth.js';
+import { createPurchase, getPurchase, attachCheckoutSession } from '#lib/server/billing-wallet.js';
+import { rateLimit } from '#lib/server/rate-limit.js';
+import { getStripe, isStripeConfigured } from '#lib/server/stripe.js';
 
 const REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CHECKOUT_RATE_LIMIT = 10;

@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSessionFromCookies } from '$lib/server/auth';
-import { getDb } from '$lib/server/db';
-import { chatMessages, packingItems, tripCollaborators, trips, users } from '$lib/server/schema';
+import { getSessionFromCookies } from '#lib/server/auth.js';
+import { getDb } from '#lib/server/db.js';
+import { chatMessages, packingItems, tripCollaborators, trips, users } from '#lib/server/schema.js';
 import { and, eq } from 'drizzle-orm';
-import { getPackingListForTrip, type Climate } from '$lib/data/packing-templates';
-import { enrichTrip } from '$lib/server/trip-enrichment';
-import { getAccessibleTripById, getAccessibleTrips } from '$lib/server/trip-access';
-import { generateId, sanitizeText } from '$lib/server/utils';
+import { getPackingListForTrip, type Climate } from '#lib/data/packing-templates.js';
+import { enrichTrip } from '#lib/server/trip-enrichment.js';
+import { getAccessibleTripById, getAccessibleTrips } from '#lib/server/trip-access.js';
+import { generateId, sanitizeText } from '#lib/server/utils.js';
 
 // GET /api/trips - list all trips for current user
 export const GET: RequestHandler = async (event) => {

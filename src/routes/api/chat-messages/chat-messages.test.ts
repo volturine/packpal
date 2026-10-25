@@ -7,9 +7,9 @@ const helpers = vi.hoisted(() => {
 	return { sqliteRef: null as InstanceType<typeof Database> | null };
 });
 
-vi.mock('$lib/server/db', async () => {
+vi.mock('#lib/server/db.js', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
+	const { applyMigrations, createSqliteDb } = await import('#lib/server/sqlite.js');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
@@ -20,13 +20,13 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { GET, POST } from './+server';
-import { createSession } from '$lib/server/auth';
+import { createSession } from '#lib/server/auth.js';
 import {
 	clearAllTables,
 	insertTestUser,
 	insertTestTrip,
 	insertTestCollaborator
-} from '$lib/server/test-db-helpers';
+} from '#lib/server/test-db-helpers.js';
 
 beforeEach(() => {
 	if (helpers.sqliteRef) {
@@ -40,6 +40,7 @@ const WEEK = 7 * 24 * 60 * 60 * 1000;
 async function createAuthEvent(opts: {
 	method?: string;
 	body?: Record<string, unknown>;
+	rawBody?: string;
 	url?: string;
 	sessionUserId?: string;
 }) {
@@ -64,7 +65,7 @@ async function createAuthEvent(opts: {
 	return {
 		request: new Request(opts.url ?? 'https://packpal.test/api/chat-messages', {
 			method: opts.method ?? 'GET',
-			body: opts.body ? JSON.stringify(opts.body) : undefined,
+			body: opts.body ? JSON.stringify(opts.body) : opts.rawBody,
 			headers: opts.body ? { 'Content-Type': 'application/json' } : undefined
 		}),
 		url: new URL(opts.url ?? 'https://packpal.test/api/chat-messages'),
@@ -320,8 +321,11 @@ describe('chat message validation', () => {
 		'rejects invalid JSON bodies %# without writing',
 		async (body) => {
 			seedTrip();
-			const event = await createAuthEvent({ method: 'POST', sessionUserId: 'user-1' });
-			event.request = new Request(event.url, { method: 'POST', body });
+			const event = await createAuthEvent({
+				method: 'POST',
+				sessionUserId: 'user-1',
+				rawBody: body
+			});
 			expect((await POST(event)).status).toBe(400);
 			expect(helpers.sqliteRef!.prepare('SELECT COUNT(*) FROM chat_messages').pluck().get()).toBe(
 				0

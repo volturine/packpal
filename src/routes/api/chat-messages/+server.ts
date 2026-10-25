@@ -1,12 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSessionFromCookies } from '$lib/server/auth';
-import { getDb } from '$lib/server/db';
-import { chatMessages } from '$lib/server/schema';
+import { getSessionFromCookies } from '#lib/server/auth.js';
+import { getDb } from '#lib/server/db.js';
+import { chatMessages } from '#lib/server/schema.js';
 import { and, eq, lt, desc } from 'drizzle-orm';
-import { getAccessibleTripById } from '$lib/server/trip-access';
-import { generateId } from '$lib/server/utils';
-import { readJsonObject } from '$lib/server/request';
+import { getAccessibleTripById } from '#lib/server/trip-access.js';
+import { generateId } from '#lib/server/utils.js';
+import { readJsonObject } from '#lib/server/request.js';
 
 const PAGE_SIZE = 50;
 
