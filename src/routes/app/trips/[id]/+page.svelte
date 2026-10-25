@@ -1,31 +1,31 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import AppHeader from '$lib/components/AppHeader.svelte';
-	import { CATEGORIES } from '$lib/data/packing-templates';
-	import type { Climate } from '$lib/data/packing-templates';
+	import AppHeader from '#lib/components/AppHeader.svelte';
+	import { CATEGORIES } from '#lib/data/packing-templates.js';
+	import type { Climate } from '#lib/data/packing-templates.js';
 	import {
 		formatActivityNames,
 		getSeasonHint,
 		getTripInsightSummary,
 		getPrioritySortValue,
 		isCriticalItem
-	} from '$lib/packing-insights';
-	import { formatDate, daysUntil, reminderClasses } from '$lib/format';
+	} from '#lib/packing-insights.js';
+	import { formatDate, daysUntil, reminderClasses } from '#lib/format.js';
 	import type {
 		PackingItem,
 		PackingPreset,
 		PackingItemPriority,
 		Trip,
 		TripCollaborator
-	} from '$lib/types';
+	} from '#lib/types.js';
 
-	import Toast from '$lib/components/Toast.svelte';
-	import TripEditModal from '$lib/components/TripEditModal.svelte';
-	import PackingItemRow from '$lib/components/PackingItemRow.svelte';
-	import AddItemForm from '$lib/components/AddItemForm.svelte';
-	import CollaboratorsPanel from '$lib/components/CollaboratorsPanel.svelte';
-	import PresetsPanel from '$lib/components/PresetsPanel.svelte';
+	import Toast from '#lib/components/Toast.svelte';
+	import TripEditModal from '#lib/components/TripEditModal.svelte';
+	import PackingItemRow from '#lib/components/PackingItemRow.svelte';
+	import AddItemForm from '#lib/components/AddItemForm.svelte';
+	import CollaboratorsPanel from '#lib/components/CollaboratorsPanel.svelte';
+	import PresetsPanel from '#lib/components/PresetsPanel.svelte';
 
 	const { data } = $props();
 	const tripId = $derived(data.tripId);
@@ -425,7 +425,7 @@
 	<AppHeader backHref="/app" backLabel="Back to trips">
 		{#snippet actions()}
 			<a
-				href={resolve(`/app/trips/${tripId}/chat`)}
+				href={resolve('/app/trips/[id]/chat', { id: tripId })}
 				class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
 			>
 				AI Assistant

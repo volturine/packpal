@@ -3,9 +3,9 @@ import Database from 'better-sqlite3';
 
 const helpers = vi.hoisted(() => ({ sqliteRef: null as InstanceType<typeof Database> | null }));
 
-vi.mock('$lib/server/db', async () => {
+vi.mock('#lib/server/db.js', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
+	const { applyMigrations, createSqliteDb } = await import('#lib/server/sqlite.js');
 
 	const sqlite = new Database(':memory:');
 	applyMigrations(sqlite);

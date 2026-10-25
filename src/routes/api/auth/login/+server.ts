@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createSession, setSessionCookie, verifyPassword } from '$lib/server/auth';
-import { getDb } from '$lib/server/db';
-import { users } from '$lib/server/schema';
+import { createSession, setSessionCookie, verifyPassword } from '#lib/server/auth.js';
+import { getDb } from '#lib/server/db.js';
+import { users } from '#lib/server/schema.js';
 import { eq } from 'drizzle-orm';
-import { rateLimitByIp } from '$lib/server/rate-limit';
-import { readJsonObject } from '$lib/server/request';
+import { rateLimitByIp } from '#lib/server/rate-limit.js';
+import { readJsonObject } from '#lib/server/request.js';
 
 const MAX_USERNAME_LENGTH = 100;
 const MAX_PASSWORD_LENGTH = 1024;

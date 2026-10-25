@@ -1,10 +1,9 @@
-import { env } from '$env/dynamic/private';
+import { STRIPE_MODE } from '$app/env/private';
 
 export type StripeMode = 'test' | 'live';
 
 export function getStripeMode(): StripeMode | null {
-	const configuredMode = env.STRIPE_MODE;
-	const mode = configuredMode === undefined ? 'test' : configuredMode.trim();
+	const mode = STRIPE_MODE === undefined ? 'test' : STRIPE_MODE.trim();
 	return mode === 'test' || mode === 'live' ? mode : null;
 }
 

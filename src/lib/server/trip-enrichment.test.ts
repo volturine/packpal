@@ -6,9 +6,9 @@ const helpers = vi.hoisted(() => {
 	return { sqliteRef: null as InstanceType<typeof Database> | null };
 });
 
-vi.mock('$lib/server/db', async () => {
+vi.mock('#lib/server/db.js', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
+	const { applyMigrations, createSqliteDb } = await import('#lib/server/sqlite.js');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
@@ -19,8 +19,8 @@ vi.mock('$lib/server/db', async () => {
 });
 
 // Import AFTER mock declaration
-import { getTripItems, enrichTrip } from '$lib/server/trip-enrichment';
-import type { AccessibleTripRecord } from '$lib/server/trip-access';
+import { getTripItems, enrichTrip } from '#lib/server/trip-enrichment.js';
+import type { AccessibleTripRecord } from '#lib/server/trip-access.js';
 import {
 	clearAllTables,
 	insertTestUser,

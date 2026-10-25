@@ -1,14 +1,14 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type Stripe from 'stripe';
-import { BILLING_CURRENCY } from '$lib/billing';
-import { creditPurchase, getPurchase } from '$lib/server/billing-wallet';
+import { BILLING_CURRENCY } from '#lib/billing.js';
+import { creditPurchase, getPurchase } from '#lib/server/billing-wallet.js';
 import {
 	constructStripeWebhookEvent,
 	getStripe,
 	getStripeMode,
 	isStripeConfigured
-} from '$lib/server/stripe';
+} from '#lib/server/stripe.js';
 
 class InvalidPackPalPaymentError extends Error {}
 

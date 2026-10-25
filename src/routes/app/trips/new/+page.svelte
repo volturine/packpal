@@ -1,10 +1,10 @@
 <script lang="ts">
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppHeader from '#lib/components/AppHeader.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { ACTIVITIES, ACTIVITY_GROUPS, type Climate } from '$lib/data/packing-templates';
-	import { getInitialTripItems } from '$lib/trip-items';
-	import type { PackingPreset } from '$lib/types';
+	import { ACTIVITIES, ACTIVITY_GROUPS, type Climate } from '#lib/data/packing-templates.js';
+	import { getInitialTripItems } from '#lib/trip-items.js';
+	import type { PackingPreset } from '#lib/types.js';
 
 	const { data } = $props();
 
@@ -148,7 +148,7 @@
 				});
 			}
 
-			await goto(resolve(`/app/trips/${tripId}`));
+			await goto(resolve('/app/trips/[id]', { id: tripId }));
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Something went wrong';
 		} finally {

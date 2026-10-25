@@ -6,10 +6,10 @@ import {
 	MAX_TOPUP_CENTS,
 	MIN_TOPUP_CENTS,
 	type CreditPurchaseStatus
-} from '$lib/billing';
-import { getDb } from '$lib/server/db';
-import { aiUsage, billingPurchases, users } from '$lib/server/schema';
-import { requireStripeMode, type StripeMode } from '$lib/server/billing-mode';
+} from '#lib/billing.js';
+import { getDb } from '#lib/server/db.js';
+import { aiUsage, billingPurchases, users } from '#lib/server/schema.js';
+import { requireStripeMode, type StripeMode } from '#lib/server/billing-mode.js';
 
 type Purchase = typeof billingPurchases.$inferSelect;
 

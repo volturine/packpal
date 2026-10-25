@@ -1,9 +1,9 @@
 import { desc, eq } from 'drizzle-orm';
-import { getTripInsightSummary } from '$lib/packing-insights';
-import type { PackingItem, Trip } from '$lib/types';
-import { getDb } from '$lib/server/db';
-import { packingItems } from '$lib/server/schema';
-import { getTripCollaborators, type AccessibleTripRecord } from '$lib/server/trip-access';
+import { getTripInsightSummary } from '#lib/packing-insights.js';
+import type { PackingItem, Trip } from '#lib/types.js';
+import { getDb } from '#lib/server/db.js';
+import { packingItems } from '#lib/server/schema.js';
+import { getTripCollaborators, type AccessibleTripRecord } from '#lib/server/trip-access.js';
 
 export async function getTripItems(tripId: string) {
 	const items = await getDb()

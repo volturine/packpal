@@ -1,5 +1,5 @@
-import type { PackingPresetItem } from '$lib/types';
-import { getPackingListForTrip, type Climate } from '$lib/data/packing-templates';
+import type { PackingPresetItem } from '#lib/types.js';
+import { getPackingListForTrip, type Climate } from '#lib/data/packing-templates.js';
 
 export interface InitialTripItem {
 	name: string;

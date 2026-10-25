@@ -5,7 +5,8 @@ const state = vi.hoisted(() => ({
 	sqlite: null as InstanceType<typeof Database> | null,
 	privateEnv: {
 		STRIPE_SECRET_KEY: 'sk_test_checkout' as string,
-		STRIPE_WEBHOOK_SECRET: 'whsec_checkout' as string
+		STRIPE_WEBHOOK_SECRET: 'whsec_checkout' as string,
+		STRIPE_MODE: undefined as string | undefined
 	},
 	fetch: vi.fn<typeof fetch>(),
 	checkoutUrl: 'https://checkout.stripe.com/c/pay/cs_packpal_test' as string,
@@ -13,11 +14,21 @@ const state = vi.hoisted(() => ({
 	checkoutSession: null as { id: string; object: string; url: string | null } | null
 }));
 
-vi.mock('$env/dynamic/private', () => ({ env: state.privateEnv }));
+vi.mock('$app/env/private', () => ({
+	get STRIPE_MODE() {
+		return state.privateEnv.STRIPE_MODE;
+	},
+	get STRIPE_SECRET_KEY() {
+		return state.privateEnv.STRIPE_SECRET_KEY;
+	},
+	get STRIPE_WEBHOOK_SECRET() {
+		return state.privateEnv.STRIPE_WEBHOOK_SECRET;
+	}
+}));
 
-vi.mock('$lib/server/db', async () => {
+vi.mock('#lib/server/db.js', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
+	const { applyMigrations, createSqliteDb } = await import('#lib/server/sqlite.js');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
@@ -28,9 +39,9 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { POST } from './checkout/+server';
-import { createSession } from '$lib/server/auth';
-import { clearAllTables, insertTestUser } from '$lib/server/test-db-helpers';
-import { resetRateLimitStore } from '$lib/server/rate-limit';
+import { createSession } from '#lib/server/auth.js';
+import { clearAllTables, insertTestUser } from '#lib/server/test-db-helpers.js';
+import { resetRateLimitStore } from '#lib/server/rate-limit.js';
 
 const REQUEST_ID = '11111111-1111-4111-8111-111111111111';
 const ORIGIN = 'https://packpal.test';

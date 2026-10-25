@@ -6,21 +6,19 @@ const fixture = vi.hoisted(() => ({
 	configured: true,
 	mode: 'live' as 'test' | 'live'
 }));
-vi.mock('$env/dynamic/private', () => ({
-	env: {
-		OPENROUTER_API_KEY: 'fixture',
-		get STRIPE_MODE() {
-			return fixture.mode;
-		}
+vi.mock('$app/env/private', () => ({
+	OPENROUTER_API_KEY: 'fixture',
+	get STRIPE_MODE() {
+		return fixture.mode;
 	}
 }));
-vi.mock('$lib/server/stripe', () => ({
+vi.mock('#lib/server/stripe.js', () => ({
 	isStripeConfigured: () => fixture.configured,
 	getStripeMode: () => fixture.mode
 }));
-vi.mock('$lib/server/db', async () => {
+vi.mock('#lib/server/db.js', async () => {
 	const Sqlite = (await import('better-sqlite3')).default;
-	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
+	const { applyMigrations, createSqliteDb } = await import('#lib/server/sqlite.js');
 	const sqlite = new Sqlite(':memory:');
 	sqlite.pragma('foreign_keys = ON');
 	applyMigrations(sqlite);
@@ -29,15 +27,15 @@ vi.mock('$lib/server/db', async () => {
 });
 import { POST } from './+server';
 import { GET as billingSummary } from '../billing/+server';
-import { createSession } from '$lib/server/auth';
+import { createSession } from '#lib/server/auth.js';
 import {
 	attachCheckoutSession,
 	createPurchase,
 	creditPurchase,
 	getWallet
-} from '$lib/server/billing-wallet';
-import { clearAllTables, insertTestTrip, insertTestUser } from '$lib/server/test-db-helpers';
-import { parseProviderUsage, reconcileUsage } from '$lib/server/billing-usage';
+} from '#lib/server/billing-wallet.js';
+import { clearAllTables, insertTestTrip, insertTestUser } from '#lib/server/test-db-helpers.js';
+import { parseProviderUsage, reconcileUsage } from '#lib/server/billing-usage.js';
 
 const provider = vi.fn<typeof fetch>();
 const ORIGIN = 'https://packpal.test';

@@ -16,11 +16,21 @@ const state = vi.hoisted(() => ({
 	requests: [] as { method: string; path: string }[]
 }));
 
-vi.mock('$env/dynamic/private', () => ({ env: state.privateEnv }));
+vi.mock('$app/env/private', () => ({
+	get STRIPE_MODE() {
+		return state.privateEnv.STRIPE_MODE;
+	},
+	get STRIPE_SECRET_KEY() {
+		return state.privateEnv.STRIPE_SECRET_KEY;
+	},
+	get STRIPE_WEBHOOK_SECRET() {
+		return state.privateEnv.STRIPE_WEBHOOK_SECRET;
+	}
+}));
 
-vi.mock('$lib/server/db', async () => {
+vi.mock('#lib/server/db.js', async () => {
 	const Database = (await import('better-sqlite3')).default;
-	const { applyMigrations, createSqliteDb } = await import('$lib/server/sqlite');
+	const { applyMigrations, createSqliteDb } = await import('#lib/server/sqlite.js');
 
 	const sqlite = new Database(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
@@ -31,8 +41,8 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { POST } from './webhook/+server';
-import { createPurchase, attachCheckoutSession } from '$lib/server/billing-wallet';
-import { clearAllTables, insertTestUser } from '$lib/server/test-db-helpers';
+import { createPurchase, attachCheckoutSession } from '#lib/server/billing-wallet.js';
+import { clearAllTables, insertTestUser } from '#lib/server/test-db-helpers.js';
 
 const REQUEST_ID = '22222222-2222-4222-8222-222222222222';
 const USER_ID = 'user-1';

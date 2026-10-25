@@ -1,10 +1,10 @@
-import { env } from '$env/dynamic/private';
+import { OPENROUTER_API_KEY } from '$app/env/private';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSessionFromCookies } from '$lib/server/auth';
-import { getWallet } from '$lib/server/billing-wallet';
-import { reconcileUsage } from '$lib/server/billing-usage';
-import { getStripeMode, isStripeConfigured } from '$lib/server/stripe';
+import { getSessionFromCookies } from '#lib/server/auth.js';
+import { getWallet } from '#lib/server/billing-wallet.js';
+import { reconcileUsage } from '#lib/server/billing-usage.js';
+import { getStripeMode, isStripeConfigured } from '#lib/server/stripe.js';
 import {
 	AI_PRICE_MULTIPLIER,
 	AI_RESERVATION_MICRO_USD,
@@ -12,7 +12,7 @@ import {
 	MIN_TOPUP_CENTS,
 	MAX_TOPUP_CENTS,
 	type BillingSummary
-} from '$lib/billing';
+} from '#lib/billing.js';
 
 export const GET: RequestHandler = async (event) => {
 	const session = await getSessionFromCookies(event);
@@ -28,7 +28,7 @@ export const GET: RequestHandler = async (event) => {
 		maximumTopupCents: MAX_TOPUP_CENTS,
 		reservationMicroUsd: AI_RESERVATION_MICRO_USD,
 		checkoutEnabled: isStripeConfigured(),
-		aiEnabled: isStripeConfigured() && (mode === 'test' || Boolean(env.OPENROUTER_API_KEY))
+		aiEnabled: isStripeConfigured() && (mode === 'test' || Boolean(OPENROUTER_API_KEY))
 	};
 	return json(summary, { headers: { 'Cache-Control': 'no-store' } });
 };

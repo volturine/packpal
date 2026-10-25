@@ -1,8 +1,8 @@
 <script lang="ts">
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppHeader from '#lib/components/AppHeader.svelte';
 	import { getContext } from 'svelte';
-	import Toast from '$lib/components/Toast.svelte';
-	import type { AuthUser } from '$lib/types';
+	import Toast from '#lib/components/Toast.svelte';
+	import type { AuthUser } from '#lib/types.js';
 
 	const auth = getContext<{
 		user: AuthUser | null;

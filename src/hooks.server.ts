@@ -1,4 +1,5 @@
-import { json, type Handle } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit/hooks';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 

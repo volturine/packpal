@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSessionFromCookies, hashPassword, verifyPassword } from '$lib/server/auth';
-import { getDb } from '$lib/server/db';
-import { sessions, users } from '$lib/server/schema';
+import { getSessionFromCookies, hashPassword, verifyPassword } from '#lib/server/auth.js';
+import { getDb } from '#lib/server/db.js';
+import { sessions, users } from '#lib/server/schema.js';
 import { and, eq, ne } from 'drizzle-orm';
-import { sanitizeText } from '$lib/server/utils';
-import { readJsonObject } from '$lib/server/request';
+import { sanitizeText } from '#lib/server/utils.js';
+import { readJsonObject } from '#lib/server/request.js';
 
 const MAX_DISPLAY_NAME_LENGTH = 100;
 const MAX_PASSWORD_LENGTH = 1024;

@@ -1,12 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createUser, createSession, setSessionCookie } from '$lib/server/auth';
-import { getDb } from '$lib/server/db';
-import { users } from '$lib/server/schema';
+import { createUser, createSession, setSessionCookie } from '#lib/server/auth.js';
+import { getDb } from '#lib/server/db.js';
+import { users } from '#lib/server/schema.js';
 import { eq } from 'drizzle-orm';
-import { rateLimitByIp } from '$lib/server/rate-limit';
-import { sanitizeText } from '$lib/server/utils';
-import { readJsonObject } from '$lib/server/request';
+import { rateLimitByIp } from '#lib/server/rate-limit.js';
+import { sanitizeText } from '#lib/server/utils.js';
+import { readJsonObject } from '#lib/server/request.js';
 
 const MAX_USERNAME_LENGTH = 100;
 const MAX_DISPLAY_NAME_LENGTH = 100;

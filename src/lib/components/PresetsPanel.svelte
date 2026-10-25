@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { PackingPreset } from '$lib/types';
+	import type { PackingPreset } from '#lib/types.js';
 
 	interface Props {
 		presets: PackingPreset[];

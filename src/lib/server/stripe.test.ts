@@ -8,7 +8,17 @@ const state = vi.hoisted(() => ({
 	}
 }));
 
-vi.mock('$env/dynamic/private', () => ({ env: state.env }));
+vi.mock('$app/env/private', () => ({
+	get STRIPE_MODE() {
+		return state.env.STRIPE_MODE;
+	},
+	get STRIPE_SECRET_KEY() {
+		return state.env.STRIPE_SECRET_KEY;
+	},
+	get STRIPE_WEBHOOK_SECRET() {
+		return state.env.STRIPE_WEBHOOK_SECRET;
+	}
+}));
 
 import { getStripe, getStripeMode, isStripeConfigured } from './stripe';
 

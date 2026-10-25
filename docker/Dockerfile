@@ -4,10 +4,14 @@ FROM node:26-alpine AS build
 
 WORKDIR /app
 
-COPY package.json package-lock.json svelte.config.js tsconfig.json vite.config.ts ./
+COPY package.json package-lock.json tsconfig.json vite.config.ts ./
 RUN npm ci --ignore-scripts
 
 COPY . .
+
+# adapter-node bakes the canonical origin into the build; compose.yaml passes it.
+ARG PACKPAL_ORIGIN
+ENV PACKPAL_ORIGIN=${PACKPAL_ORIGIN}
 
 RUN npm run prepare \
 	&& npm run build \

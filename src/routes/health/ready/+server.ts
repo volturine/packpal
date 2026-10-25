@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { sql } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
-import { getDb } from '$lib/server/db';
+import { getDb } from '#lib/server/db.js';
 
 // Deployment readiness: the database is reachable and the schema is applied.
 export const GET: RequestHandler = async () => {

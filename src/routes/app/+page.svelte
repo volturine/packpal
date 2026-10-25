@@ -1,9 +1,9 @@
 <script lang="ts">
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppHeader from '#lib/components/AppHeader.svelte';
 	import { resolve } from '$app/paths';
-	import { formatActivityNames } from '$lib/packing-insights';
-	import { formatDate, reminderClasses } from '$lib/format';
-	import type { Trip } from '$lib/types';
+	import { formatActivityNames } from '#lib/packing-insights.js';
+	import { formatDate, reminderClasses } from '#lib/format.js';
+	import type { Trip } from '#lib/types.js';
 
 	const { data } = $props();
 	let trips = $state<Trip[]>([]);
@@ -277,7 +277,7 @@
 								</div>
 							</div>
 
-							<a href={resolve(`/app/trips/${trip.id}`)} class="block">
+							<a href={resolve('/app/trips/[id]', { id: trip.id })} class="block">
 								<h3 class="truncate text-base font-semibold text-slate-900">{trip.name}</h3>
 								<p class="mt-1 text-sm text-slate-500">
 									{trip.destination}{trip.country ? `, ${trip.country}` : ''}
@@ -346,12 +346,12 @@
 
 							<div class="mt-4 flex flex-wrap gap-2">
 								<a
-									href={resolve(`/app/trips/${trip.id}`)}
+									href={resolve('/app/trips/[id]', { id: trip.id })}
 									class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
 									>Open Trip</a
 								>
 								<a
-									href={resolve(`/app/trips/${trip.id}/chat`)}
+									href={resolve('/app/trips/[id]/chat', { id: trip.id })}
 									class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
 									>Open Chat</a
 								>

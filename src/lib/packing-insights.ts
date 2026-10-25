@@ -1,5 +1,5 @@
-import { ACTIVITIES, type Climate } from '$lib/data/packing-templates';
-import type { PackingItem, PackingItemPriority, Trip } from '$lib/types';
+import { ACTIVITIES, type Climate } from '#lib/data/packing-templates.js';
+import type { PackingItem, PackingItemPriority, Trip } from '#lib/types.js';
 
 export const CRITICAL_ITEM_KEYWORDS = [
 	'passport',

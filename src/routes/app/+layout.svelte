@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AuthUser } from '$lib/types';
+	import type { AuthUser } from '#lib/types.js';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { setContext } from 'svelte';

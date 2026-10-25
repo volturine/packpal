@@ -1,3 +1,5 @@
+import adapterCloudflare from '@sveltejs/adapter-cloudflare';
+import adapterNode from '@sveltejs/adapter-node';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
@@ -24,7 +26,29 @@ const cloudflarePlatform: Plugin = {
 
 export default defineConfig({
 	envDir: workspaceRoot,
-	plugins: [cloudflarePlatform, tailwindcss(), devtoolsJson(), sveltekit()],
+	plugins: [
+		cloudflarePlatform,
+		tailwindcss(),
+		devtoolsJson(),
+		sveltekit({
+			// Self-hosted Node builds are the default; DEPLOY_TARGET=cloudflare builds the Workers bundle.
+			adapter: process.env.DEPLOY_TARGET === 'cloudflare' ? adapterCloudflare() : adapterNode(),
+			compilerOptions: {
+				experimental: {
+					async: true
+				}
+			},
+			experimental: {
+				remoteFunctions: true
+			},
+			// adapter-node no longer reads ORIGIN at runtime: when PACKPAL_ORIGIN is set
+			// at build time (Docker) it is baked in as the canonical origin, otherwise
+			// the origin is derived from the request (host header, https by default).
+			paths: { origin: process.env.PACKPAL_ORIGIN || undefined },
+			dynamicCompileOptions: ({ filename }) =>
+				filename.includes('node_modules') ? undefined : { runes: true }
+		})
+	],
 	build: {
 		rolldownOptions: {
 			checks: {

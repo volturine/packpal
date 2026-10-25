@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { CATEGORIES } from '$lib/data/packing-templates';
-	import type { PackingItem, PackingItemPriority } from '$lib/types';
-	import { isCriticalItem } from '$lib/packing-insights';
+	import { CATEGORIES } from '#lib/data/packing-templates.js';
+	import type { PackingItem, PackingItemPriority } from '#lib/types.js';
+	import { isCriticalItem } from '#lib/packing-insights.js';
 
 	interface Props {
 		item: PackingItem;

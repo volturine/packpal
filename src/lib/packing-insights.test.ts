@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { PackingItem, Trip } from '$lib/types';
+import type { PackingItem, Trip } from '#lib/types.js';
 import {
 	isCriticalItem,
 	getTripStatus,
@@ -11,7 +11,7 @@ import {
 	formatActivityNames,
 	getSeasonHint,
 	CRITICAL_ITEM_KEYWORDS
-} from '$lib/packing-insights';
+} from '#lib/packing-insights.js';
 
 // Helper to create a minimal PackingItem for testing
 function makeItem(
