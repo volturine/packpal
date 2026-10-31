@@ -2,7 +2,7 @@
 	"name": "packpal",
 	"version": "0.0.1",
 	"devDependencies": {
-		"@cloudflare/workers-types": "^5.20261021.1",
+		"@cloudflare/workers-types": "^5.20261028.1",
 		"@eslint/compat": "^2.1.1",
 		"@eslint/js": "^10.0.1",
 		"@playwright/test": "^1.64.1",
@@ -21,20 +21,20 @@
 		"prettier": "^3.9.10",
 		"prettier-plugin-svelte": "^4.1.1",
 		"prettier-plugin-tailwindcss": "^0.8.1",
-		"svelte": "^5.57.0",
+		"svelte": "^5.57.3",
 		"svelte-check": "^4.7.7",
 		"tailwindcss": "^4.3.3",
 		"typescript": "^6.0.3",
-		"typescript-eslint": "^8.72.0",
+		"typescript-eslint": "^8.72.1",
 		"vite": "^8.3.5",
 		"vite-plugin-devtools-json": "^1.1.2",
 		"vitest": "^5.0.5",
-		"wrangler": "^4.151.3"
+		"wrangler": "^4.154.0"
 	},
 	"dependencies": {
 		"better-sqlite3": "^13.0.3",
 		"drizzle-orm": "^0.45.4",
-		"stripe": "^23.0.0"
+		"stripe": "^23.0.1"
 	},
 	"engines": {
 		"node": ">=24"
