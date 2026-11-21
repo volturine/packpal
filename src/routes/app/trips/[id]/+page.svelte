@@ -471,8 +471,9 @@
 									{#if trip.isShared}
 										<span
 											class="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700"
-											>Shared trip</span
 										>
+											Shared trip
+										</span>
 									{/if}
 								</div>
 								<p class="mt-1 text-sm text-slate-500">
@@ -491,8 +492,9 @@
 									{#each formatActivityNames(trip.activities) as activity (activity)}
 										<span
 											class="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
-											>{activity}</span
 										>
+											{activity}
+										</span>
 									{/each}
 								</div>
 								{#if trip.notes}
@@ -503,14 +505,16 @@
 								<button
 									onclick={() => (editingTrip = true)}
 									class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-									>Edit Details</button
 								>
+									Edit Details
+								</button>
 								{#if !trip.isShared}
 									<button
 										onclick={deleteTrip}
 										class="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-										>Delete Trip</button
 									>
+										Delete Trip
+									</button>
 								{/if}
 							</div>
 						</div>
@@ -519,9 +523,9 @@
 						<div class="mt-5 grid gap-3 md:grid-cols-2">
 							<div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
 								<div class="mb-2 flex items-center justify-between">
-									<span class="text-sm font-medium text-slate-700"
-										>{packedItems} of {totalItems} items packed</span
-									>
+									<span class="text-sm font-medium text-slate-700">
+										{packedItems} of {totalItems} items packed
+									</span>
 									<span class="text-sm font-bold text-brand-600">{progressPercent}%</span>
 								</div>
 								<div class="h-3 overflow-hidden rounded-full bg-slate-200">
@@ -604,18 +608,21 @@
 									<button
 										onclick={() => toggleVisibleItems(true)}
 										class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-										>Pack Visible</button
 									>
+										Pack Visible
+									</button>
 									<button
 										onclick={() => toggleVisibleItems(false)}
 										class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-										>Unpack Visible</button
 									>
+										Unpack Visible
+									</button>
 									<button
 										onclick={() => (showAddItem = !showAddItem)}
 										class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-										>+ Add Item</button
 									>
+										+ Add Item
+									</button>
 								</div>
 							</div>
 
@@ -630,15 +637,18 @@
 										class="rounded-lg px-3 py-1.5 text-xs font-medium {filterCategory === 'all'
 											? 'bg-brand-600 text-white'
 											: 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
-										>All ({totalItems})</button
 									>
+										All ({totalItems})
+									</button>
 									{#each categories as category (category)}
 										<button
 											onclick={() => (filterCategory = category)}
 											class="rounded-lg px-3 py-1.5 text-xs font-medium {filterCategory === category
 												? 'bg-brand-600 text-white'
-												: 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">{category}</button
+												: 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
 										>
+											{category}
+										</button>
 									{/each}
 								</div>
 							{/if}
@@ -658,9 +668,9 @@
 													<h2 class="text-sm font-semibold text-slate-800">
 														{category}
 													</h2>
-													<span class="text-xs text-slate-400"
-														>{packedInCategory}/{categoryItems.length}</span
-													>
+													<span class="text-xs text-slate-400">
+														{packedInCategory}/{categoryItems.length}
+													</span>
 												</div>
 												<button
 													onclick={() => toggleCategory(category, !allPacked)}

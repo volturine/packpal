@@ -26,8 +26,9 @@
 			>
 				<span
 					class="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-xs text-white"
-					>P</span
 				>
+					P
+				</span>
 				PackPal
 			</a>
 			{#if backHref}

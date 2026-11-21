@@ -344,8 +344,9 @@
 				<a
 					href={resolve('/app')}
 					class="mt-4 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-					>Back to dashboard</a
 				>
+					Back to dashboard
+				</a>
 			</div>
 		</div>
 	{:else if loading}
@@ -487,8 +488,9 @@
 									onclick={() => sendMessage(suggestion)}
 									disabled={!canUseAi || streaming || !trip}
 									class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-brand-300 hover:bg-brand-50"
-									>{suggestion}</button
 								>
+									{suggestion}
+								</button>
 							{/each}
 						</div>
 					</div>
@@ -545,8 +547,9 @@
 									<button
 										onclick={() => addSuggestedItem(suggestion)}
 										class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-white"
-										>Add this item</button
 									>
+										Add this item
+									</button>
 								</div>
 							{/each}
 						</div>
@@ -577,8 +580,9 @@
 						onclick={() => sendMessage()}
 						disabled={!inputText.trim() || streaming || !trip || !canUseAi}
 						class="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-40"
-						>{streaming ? '...' : 'Send'}</button
 					>
+						{streaming ? '...' : 'Send'}
+					</button>
 				</div>
 				<p class="mt-2 text-center text-xs text-slate-400">
 					AI suggestions are for guidance only. Always verify travel requirements independently.

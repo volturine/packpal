@@ -52,8 +52,9 @@
 			<a href="/" class="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-900">
 				<span
 					class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm text-white"
-					>P</span
 				>
+					P
+				</span>
 				PackPal
 			</a>
 			<div class="flex items-center gap-4">
