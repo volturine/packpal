@@ -164,13 +164,9 @@
 		<div class="mb-8">
 			<div class="mb-2 flex items-center justify-between text-sm text-slate-500">
 				<span>Step {step} of 3</span>
-				<span class="font-medium text-slate-700"
-					>{step === 1
-						? 'Trip Details'
-						: step === 2
-							? 'Activities & Preset'
-							: 'Review & Create'}</span
-				>
+				<span class="font-medium text-slate-700">
+					{step === 1 ? 'Trip Details' : step === 2 ? 'Activities & Preset' : 'Review & Create'}
+				</span>
 			</div>
 			<div class="h-1.5 overflow-hidden rounded-full bg-slate-200">
 				<div
@@ -256,8 +252,9 @@
 						disabled={!canProceedStep1}
 						onclick={() => (step = 2)}
 						class="rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-40"
-						>Next: Activities & Preset</button
 					>
+						Next: Activities & Preset
+					</button>
 				</div>
 			</div>
 		{:else if step === 2}
@@ -267,9 +264,9 @@
 					Choose activities and optionally layer in one of your saved custom-item presets.
 				</p>
 				<div class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-					<label for="preset-select" class="mb-2 block text-sm font-medium text-slate-700"
-						>Packing preset</label
-					>
+					<label for="preset-select" class="mb-2 block text-sm font-medium text-slate-700">
+						Packing preset
+					</label>
 					<select
 						id="preset-select"
 						bind:value={selectedPresetId}
@@ -318,14 +315,16 @@
 					<button
 						onclick={() => (step = 1)}
 						class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-						>Back</button
 					>
+						Back
+					</button>
 					<button
 						disabled={!canProceedStep2}
 						onclick={() => (step = 3)}
 						class="rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-40"
-						>Next: Review</button
 					>
+						Next: Review
+					</button>
 				</div>
 			</div>
 		{:else}
@@ -349,11 +348,11 @@
 							</div>
 							<div>
 								<span class="text-slate-500">Dates:</span>
-								<span class="font-medium"
-									>{new Date(startDate).toLocaleDateString()} - {new Date(
+								<span class="font-medium">
+									{new Date(startDate).toLocaleDateString()} - {new Date(
 										endDate
-									).toLocaleDateString()}</span
-								>
+									).toLocaleDateString()}
+								</span>
 							</div>
 							<div>
 								<span class="text-slate-500">Climate:</span>
@@ -373,8 +372,9 @@
 									(activity) => activity.id === actId
 								)}{#if act}<span
 										class="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700"
-										>{act.name}</span
-									>{/if}{/each}
+									>
+										{act.name}
+									</span>{/if}{/each}
 						</div>
 						{#if selectedPreset}<p class="mt-3 text-sm text-slate-500">
 								Preset: <span class="font-medium text-slate-700">{selectedPreset.name}</span>
@@ -382,9 +382,9 @@
 					</div>
 					<div class="rounded-xl border border-slate-200 bg-white p-5">
 						<h2 class="mb-3 text-base font-semibold">
-							Packing preview <span class="text-sm font-normal text-slate-400"
-								>({previewItems.length} items)</span
-							>
+							Packing preview <span class="text-sm font-normal text-slate-400">
+								({previewItems.length} items)
+							</span>
 						</h2>
 						<div class="grid gap-2 sm:grid-cols-2">
 							{#each previewByCategory as [category, count] (category)}<div
@@ -392,8 +392,9 @@
 								>
 									<span class="text-sm text-slate-700">{category}</span><span
 										class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600"
-										>{count}</span
 									>
+										{count}
+									</span>
 								</div>{/each}
 						</div>
 					</div>
@@ -402,14 +403,16 @@
 					<button
 						onclick={() => (step = 2)}
 						class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-						>Back</button
 					>
+						Back
+					</button>
 					<button
 						disabled={submitting}
 						onclick={handleSubmit}
 						class="rounded-lg bg-brand-600 px-8 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-						>{submitting ? 'Creating...' : 'Create Trip & Generate List'}</button
 					>
+						{submitting ? 'Creating...' : 'Create Trip & Generate List'}
+					</button>
 				</div>
 			</div>
 		{/if}

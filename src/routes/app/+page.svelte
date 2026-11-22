@@ -240,32 +240,37 @@
 									{#if trip.isShared}
 										<span
 											class="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700"
-											>Shared</span
 										>
+											Shared
+										</span>
 									{/if}
 									{#if trip.criticalUnpackedCount}
 										<span
 											class="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700"
-											>{trip.criticalUnpackedCount} critical left</span
 										>
+											{trip.criticalUnpackedCount} critical left
+										</span>
 									{/if}
 								</div>
 								<div class="relative z-20 flex items-center gap-1">
 									<button
 										onclick={() => toggleTripPacking(trip, true)}
 										class="rounded-md px-2 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-										>Pack all</button
 									>
+										Pack all
+									</button>
 									<button
 										onclick={() => toggleTripPacking(trip, false)}
 										class="rounded-md px-2 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-										>Unpack all</button
 									>
+										Unpack all
+									</button>
 									<button
 										onclick={() => archiveTrip(trip.id, !trip.archivedAt)}
 										class="rounded-md px-2 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-										>{trip.archivedAt ? 'Restore' : 'Archive'}</button
 									>
+										{trip.archivedAt ? 'Restore' : 'Archive'}
+									</button>
 									{#if !trip.isShared}
 										<button
 											onclick={() => handleDelete(trip.id)}
@@ -333,14 +338,16 @@
 								{#each formatActivityNames(trip.activities).slice(0, 3) as activity (activity)}
 									<span
 										class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"
-										>{activity}</span
 									>
+										{activity}
+									</span>
 								{/each}
 								{#if trip.activities.length > 3}
 									<span
 										class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-400"
-										>+{trip.activities.length - 3}</span
 									>
+										+{trip.activities.length - 3}
+									</span>
 								{/if}
 							</div>
 
@@ -348,13 +355,15 @@
 								<a
 									href={resolve('/app/trips/[id]', { id: trip.id })}
 									class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-									>Open Trip</a
 								>
+									Open Trip
+								</a>
 								<a
 									href={resolve('/app/trips/[id]/chat', { id: trip.id })}
 									class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-									>Open Chat</a
 								>
+									Open Chat
+								</a>
 							</div>
 						</div>
 					{/each}

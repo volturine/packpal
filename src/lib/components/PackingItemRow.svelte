@@ -103,13 +103,16 @@
 				/>
 				<button
 					onclick={saveEdit}
-					class="rounded bg-brand-600 px-2 py-1 text-xs text-white hover:bg-brand-700">Save</button
+					class="rounded bg-brand-600 px-2 py-1 text-xs text-white hover:bg-brand-700"
 				>
+					Save
+				</button>
 				<button
 					onclick={oncanceledit}
 					class="rounded bg-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-300"
-					>Cancel</button
 				>
+					Cancel
+				</button>
 			</div>
 			{#if editError}
 				<p class="mt-2 text-sm text-red-600">{editError}</p>
@@ -134,24 +137,27 @@
 		</button>
 		<div class="flex-1">
 			<div class="flex flex-wrap items-center gap-2">
-				<span class="text-sm {item.packed ? 'text-slate-400 line-through' : 'text-slate-800'}"
-					>{item.name}</span
-				>
+				<span class="text-sm {item.packed ? 'text-slate-400 line-through' : 'text-slate-800'}">
+					{item.name}
+				</span>
 				<span
 					class="rounded-full px-1.5 py-0.5 text-[10px] font-medium {priorityBadgeClasses(
 						item.priority
-					)}">{item.priority}</span
+					)}"
 				>
+					{item.priority}
+				</span>
 				{#if isCriticalItem(item)}
-					<span class="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
-						>Critical</span
-					>
+					<span class="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+						Critical
+					</span>
 				{/if}
 				{#if item.isCustom}
 					<span
 						class="rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-medium text-brand-600"
-						>Custom</span
 					>
+						Custom
+					</span>
 				{/if}
 			</div>
 			{#if item.notes}
@@ -159,21 +165,25 @@
 			{/if}
 		</div>
 		{#if item.quantity > 1}
-			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500"
-				>x{item.quantity}</span
-			>
+			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+				x{item.quantity}
+			</span>
 		{/if}
 		<div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
 			<button
 				onclick={startEdit}
 				class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-				aria-label="Edit item">Edit</button
+				aria-label="Edit item"
 			>
+				Edit
+			</button>
 			<button
 				onclick={() => onremove(item.id)}
 				class="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
-				aria-label="Remove item">Remove</button
+				aria-label="Remove item"
 			>
+				Remove
+			</button>
 		</div>
 	{/if}
 </li>

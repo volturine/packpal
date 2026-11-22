@@ -105,9 +105,9 @@
 			<h2 class="text-base font-semibold text-slate-900">Account Info</h2>
 			<div class="mt-4 space-y-4">
 				<div>
-					<label for="username" class="mb-1 block text-sm font-medium text-slate-700"
-						>Username</label
-					>
+					<label for="username" class="mb-1 block text-sm font-medium text-slate-700">
+						Username
+					</label>
 					<input
 						id="username"
 						type="text"
@@ -118,9 +118,9 @@
 					<p class="mt-1 text-xs text-slate-400">Username cannot be changed.</p>
 				</div>
 				<div>
-					<label for="displayName" class="mb-1 block text-sm font-medium text-slate-700"
-						>Display Name</label
-					>
+					<label for="displayName" class="mb-1 block text-sm font-medium text-slate-700">
+						Display Name
+					</label>
 					<input
 						id="displayName"
 						type="text"
@@ -151,9 +151,9 @@
 				class="mt-4 space-y-4"
 			>
 				<div>
-					<label for="currentPassword" class="mb-1 block text-sm font-medium text-slate-700"
-						>Current Password</label
-					>
+					<label for="currentPassword" class="mb-1 block text-sm font-medium text-slate-700">
+						Current Password
+					</label>
 					<input
 						id="currentPassword"
 						type="password"
@@ -163,9 +163,9 @@
 					/>
 				</div>
 				<div>
-					<label for="newPassword" class="mb-1 block text-sm font-medium text-slate-700"
-						>New Password</label
-					>
+					<label for="newPassword" class="mb-1 block text-sm font-medium text-slate-700">
+						New Password
+					</label>
 					<input
 						id="newPassword"
 						type="password"
@@ -175,9 +175,9 @@
 					/>
 				</div>
 				<div>
-					<label for="confirmPassword" class="mb-1 block text-sm font-medium text-slate-700"
-						>Confirm New Password</label
-					>
+					<label for="confirmPassword" class="mb-1 block text-sm font-medium text-slate-700">
+						Confirm New Password
+					</label>
 					<input
 						id="confirmPassword"
 						type="password"

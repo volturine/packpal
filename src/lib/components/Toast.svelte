@@ -22,8 +22,9 @@
 				<button
 					onclick={() => toast?.action?.()}
 					class="font-semibold text-brand-600 hover:text-brand-700"
-					>{toast.undoLabel ?? 'Undo'}</button
 				>
+					{toast.undoLabel ?? 'Undo'}
+				</button>
 			{/if}
 		</div>
 	</div>

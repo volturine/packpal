@@ -109,8 +109,9 @@
 				>
 					<span
 						class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-sm text-white"
-						>P</span
 					>
+						P
+					</span>
 					PackPal
 				</a>
 				<p class="mt-2 text-sm text-slate-500">
@@ -132,9 +133,9 @@
 				class="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
 			>
 				<div>
-					<label for="username" class="mb-1 block text-sm font-medium text-slate-700"
-						>Username</label
-					>
+					<label for="username" class="mb-1 block text-sm font-medium text-slate-700">
+						Username
+					</label>
 					<input
 						id="username"
 						type="text"
@@ -160,9 +161,9 @@
 				{/if}
 
 				<div>
-					<label for="password" class="mb-1 block text-sm font-medium text-slate-700"
-						>Password</label
-					>
+					<label for="password" class="mb-1 block text-sm font-medium text-slate-700">
+						Password
+					</label>
 					<input
 						id="password"
 						type="password"
